@@ -91,23 +91,23 @@ def main(args):
 
 
 def get_args():
-    args = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser()
 
-    args.add_argument('--task_name', type=str, default='r6d')
-    args.add_argument('--data_root', type=str, default='/mnt/ssd/yinrui/mp3d')
+    parser.add_argument('--task_name', type=str, default='r6d')
+    parser.add_argument('--data_root', type=str, default='/mnt/ssd/yinrui/mp3d')
 
-    # args.add_argument('--save_path', type=str, default='./checkpoints')
-    args.add_argument('--resume', type=str, default='../LightPose2/checkpoints/match_aug_20231209_0349/match_aug_model_best.pth')
+    # parser.add_argument('--save_path', type=str, default='./checkpoints')
+    parser.add_argument('--resume', type=str, default='../LightPose2/checkpoints/match_aug_20231209_0349/match_aug_model_best.pth')
 
-    args.add_argument('--batch_size', type=int, default=32)
-    args.add_argument('--num_workers', type=int, default=8)
+    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--num_workers', type=int, default=8)
 
-    args.add_argument('--pct_pruning', type=float, default=0.)
+    parser.add_argument('--pct_pruning', type=float, default=0.)
     
-    args.add_argument('--device', type=str, default='cuda:1')
-    # args.add_argument('--use_amp', action='store_true')
+    parser.add_argument('--device', type=str, default='cuda:1')
+    # parser.add_argument('--use_amp', action='store_true')
 
-    args = args.parse_args()
+    args = parser.parse_args()
 
     return args
 

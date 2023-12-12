@@ -45,8 +45,8 @@ def train(args, model, trainset, validset):
     os.makedirs(args.save_path, exist_ok=True)
     os.makedirs(save_path, exist_ok=True)
 
-    train_writer = SummaryWriter(f'./log2/{args.task_name}_{run_id}_train')
-    valid_writer = SummaryWriter(f'./log2/{args.task_name}_{run_id}_valid')
+    train_writer = SummaryWriter(f'./log/{args.task_name}_{run_id}_train')
+    valid_writer = SummaryWriter(f'./log/{args.task_name}_{run_id}_valid')
     
     start_epoch = 0
     # if args.resume is not None:
@@ -223,24 +223,24 @@ def main(args):
 
 
 def get_args():
-    args = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser()
 
-    args.add_argument('--task_name', type=str, default='r6d')
-    args.add_argument('--data_root', type=str, default='/mnt/ssd/yinrui/mp3d')
+    parser.add_argument('--task_name', type=str, default='r6d')
+    parser.add_argument('--data_root', type=str, default='/mnt/ssd/yinrui/mp3d')
 
-    args.add_argument('--save_path', type=str, default='./checkpoints')
-    # args.add_argument('--resume', type=str, default=None)
+    parser.add_argument('--save_path', type=str, default='./checkpoints')
+    # parser.add_argument('--resume', type=str, default=None)
 
-    args.add_argument('--epochs', type=int, default=120)
-    args.add_argument('--lr', type=float, default=3e-4)
+    parser.add_argument('--epochs', type=int, default=120)
+    parser.add_argument('--lr', type=float, default=3e-4)
 
-    args.add_argument('--batch_size', type=int, default=32)
-    args.add_argument('--num_workers', type=int, default=8)
+    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--num_workers', type=int, default=8)
     
-    args.add_argument('--device', type=str, default='cuda:1')
-    # args.add_argument('--use_amp', action='store_true')
+    parser.add_argument('--device', type=str, default='cuda:1')
+    # parser.add_argument('--use_amp', action='store_true')
 
-    args = args.parse_args()
+    args = parser.parse_args()
 
     return args
 

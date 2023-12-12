@@ -11,6 +11,7 @@ from torch import nn
 from utils import rotation_matrix_from_ortho6d
 
 torch.backends.cudnn.deterministic = True
+torch.set_float32_matmul_precision('high')
 
 
 @torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
@@ -87,7 +88,7 @@ class SelfBlock(nn.Module):
         s = q.shape[-1] ** -0.5
         sim = torch.einsum("...id,...jd->...ij", q, k) * s
         if mask is not None:
-            sim.masked_fill(~mask, -float("inf"))
+            sim.masked_fill(~mask.unsqueeze(1), -float("inf"))
         attn = F.softmax(sim, -1)
         context = torch.einsum("...ij,...jd->...id", attn, v)
 
@@ -131,7 +132,7 @@ class CrossBlock(nn.Module):
         qk0, qk1 = qk0 * self.scale**0.5, qk1 * self.scale**0.5
         sim = torch.einsum("bhid, bhjd -> bhij", qk0, qk1)
         if mask is not None:
-            sim = sim.masked_fill(~mask, -float("inf"))
+            sim = sim.masked_fill(~mask.unsqueeze(1), -float("inf"))
         
         assert len(match.shape) == 3
         match = match.unsqueeze(1)
@@ -300,12 +301,6 @@ class LightPose(nn.Module):
     def compile(
         self, mode="reduce-overhead", static_lengths=[256, 512, 768, 1024, 1280, 1536]
     ):
-        if self.conf.width_confidence != -1:
-            warnings.warn(
-                "Point pruning is partially disabled for compiled forward.",
-                stacklevel=2,
-            )
-
         for i in range(self.conf.n_layers):
             self.transformers[i].masked_forward = torch.compile(
                 self.transformers[i].masked_forward, mode=mode, fullgraph=True
