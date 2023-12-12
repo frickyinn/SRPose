@@ -2,13 +2,12 @@ import os
 import argparse
 import torch
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from datasets import Matterport3D
 from model import LightPose
 from lightglue import SuperPoint
-from utils import rotation_matrix_from_quaternion, rot_angle_error
+from utils import rot_angle_error
 
 
 def train(args, model, testset):
@@ -96,7 +95,6 @@ def get_args():
     parser.add_argument('--task_name', type=str, default='r6d')
     parser.add_argument('--data_root', type=str, default='/mnt/ssd/yinrui/mp3d')
 
-    # parser.add_argument('--save_path', type=str, default='./checkpoints')
     parser.add_argument('--resume', type=str, default='../LightPose2/checkpoints/match_aug_20231209_0349/match_aug_model_best.pth')
 
     parser.add_argument('--batch_size', type=int, default=32)

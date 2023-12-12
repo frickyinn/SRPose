@@ -4,7 +4,12 @@ import argparse
 from tqdm import tqdm
 import torch
 from torch.utils.data import DataLoader
+from torch.utils.data.distributed import DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
+
+import torch.distributed as dist
+import torch.multiprocessing as mp
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 from datasets import Matterport3D
 from model import LightPose
@@ -13,15 +18,34 @@ from lightglue import SuperPoint
 from utils import seed_torch, rot_angle_error
 
 
-def train(args, model, trainset, validset):
-    device = args.device
+def setup(rank, master_port, world_size):
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = str(master_port)
+
+    # initialize the process group
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+
+
+def cleanup():
+    dist.destroy_process_group()
+
+
+def train(rank, args, model, trainset, validset):
+    print(f"Running DDP on rank {rank}.")
+    setup(rank, args.master_port, args.world_size)
+
     epochs = args.epochs
 
-    trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=True)
-    validloader = DataLoader(validset, batch_size=args.batch_size, num_workers=args.num_workers, pin_memory=True)
+    trainsampler = DistributedSampler(trainset)
+    validsampler = DistributedSampler(validset, shuffle=False)
+    trainloader = DataLoader(trainset, batch_size=args.batch_size, num_workers=args.num_workers, pin_memory=True, sampler=trainsampler)
+    validloader = DataLoader(validset, batch_size=args.batch_size, num_workers=args.num_workers, pin_memory=True, sampler=validsampler)
+
+    model = model.to(rank)
+    model = DDP(model, device_ids=[rank])
 
     augment = RGBDAugmentor()
-    extractor = SuperPoint(max_num_keypoints=1024, detection_threshold=0.0).eval().to(device)  # load the extractor
+    extractor = SuperPoint(max_num_keypoints=1024, detection_threshold=0.0).eval().to(rank)  # load the extractor
     optimizer = torch.optim.AdamW(list(model.parameters()), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, steps_per_epoch=len(trainloader), epochs=epochs)
     # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=6*len(trainloader), gamma=0.9)
@@ -46,9 +70,7 @@ def train(args, model, trainset, validset):
     #         for state in optimizer.state.values():
     #             for k, v in state.items():
     #                 if isinstance(v, torch.Tensor):
-    #                     state[k] = v.to(args.device)
-
-    model = model.to(device)
+    #                     state[k] = v.to(args.rank)
 
     min_derr = 180
     for e in range(start_epoch, epochs):
@@ -64,8 +86,8 @@ def train(args, model, trainset, validset):
                 optimizer.zero_grad()
 
                 images = batch['images']
-                rotation = batch['rotation'].to(device)
-                translation = batch['translation'].to(device)
+                rotation = batch['rotation'].to(rank)
+                translation = batch['translation'].to(rank)
 
                 image_size = images.shape[-2:][::-1]
                 image0 = images[:, 0, ...]
@@ -74,8 +96,8 @@ def train(args, model, trainset, validset):
                 image1 = augment(image1)
 
                 with torch.no_grad():
-                    feats0 = extractor({'image': image0.to(device)})
-                    feats1 = extractor({'image': image1.to(device)})
+                    feats0 = extractor({'image': image0.to(rank)})
+                    feats1 = extractor({'image': image1.to(rank)})
                 
                 pred_r, pred_t = model({'image0': {**feats0, 'image_size': image_size}, 'image1': {**feats1, 'image_size': image_size}})
                 
@@ -111,14 +133,14 @@ def train(args, model, trainset, validset):
                 })
                 t.update(1)
                 # break
-
-            train_writer.add_scalar('Rotation Loss', train_loss_r / train_batch, e+1)
-            train_writer.add_scalar('Translation Loss', train_loss_t / train_batch, e+1)
-            train_writer.add_scalar('Degree Error Med.', td.median(), e+1)
-            train_writer.add_scalar('Degree Error Avg.', td.mean(), e+1)
-            train_writer.add_scalar('Meter Error Med.', tm.median(), e+1)
-            train_writer.add_scalar('Meter Error Avg.', tm.mean(), e+1)
-            train_writer.add_scalar('Learning Rate', scheduler.get_last_lr()[-1], e+1)
+            if rank == 0:
+                train_writer.add_scalar('Rotation Loss', train_loss_r / train_batch, e+1)
+                train_writer.add_scalar('Translation Loss', train_loss_t / train_batch, e+1)
+                train_writer.add_scalar('Degree Error Med.', td.median(), e+1)
+                train_writer.add_scalar('Degree Error Avg.', td.mean(), e+1)
+                train_writer.add_scalar('Meter Error Med.', tm.median(), e+1)
+                train_writer.add_scalar('Meter Error Avg.', tm.mean(), e+1)
+                train_writer.add_scalar('Learning Rate', scheduler.get_last_lr()[-1], e+1)
 
         with tqdm(desc=f'Valid Epoch {e+1}', total=len(validloader)) as t:
             valid_loss_r = 0
@@ -131,15 +153,14 @@ def train(args, model, trainset, validset):
             with torch.no_grad():
                 for i, batch in enumerate(validloader):
                     images = batch['images']
-                    rotation = batch['rotation'].to(device)
-                    # rotation = rotation_matrix_from_quaternion(rotation)
-                    translation = batch['translation'].to(device)
+                    rotation = batch['rotation'].to(rank)
+                    translation = batch['translation'].to(rank)
 
                     image0 = images[:, 0, ...]
                     image1 = images[:, 1, ...]
 
-                    feats0 = extractor({'image': image0.to(device)})
-                    feats1 = extractor({'image': image1.to(device)})
+                    feats0 = extractor({'image': image0.to(rank)})
+                    feats1 = extractor({'image': image1.to(rank)})
 
                     image_size = images.shape[-2:][::-1]
                     pred_r, pred_t = model({'image0': {**feats0, 'image_size': image_size}, 'image1': {**feats1, 'image_size': image_size}})
@@ -172,32 +193,35 @@ def train(args, model, trainset, validset):
                     })
                     t.update(1)
                     # break
+                if rank == 0:
+                    valid_writer.add_scalar('Rotation Loss', valid_loss_r / valid_batch, e+1)
+                    valid_writer.add_scalar('Translation Loss', valid_loss_t / valid_batch, e+1)
+                    valid_writer.add_scalar('Degree Error Med.', vd.median(), e+1)
+                    valid_writer.add_scalar('Degree Error Avg.', vd.mean(), e+1)
+                    valid_writer.add_scalar('Meter Error Med.', vm.median(), e+1)
+                    valid_writer.add_scalar('Meter Error Avg.', vm.mean(), e+1)
 
-                valid_writer.add_scalar('Rotation Loss', valid_loss_r / valid_batch, e+1)
-                valid_writer.add_scalar('Translation Loss', valid_loss_t / valid_batch, e+1)
-                valid_writer.add_scalar('Degree Error Med.', vd.median(), e+1)
-                valid_writer.add_scalar('Degree Error Avg.', vd.mean(), e+1)
-                valid_writer.add_scalar('Meter Error Med.', vm.median(), e+1)
-                valid_writer.add_scalar('Meter Error Avg.', vm.mean(), e+1)
-
-        checkpoint = {
-            "model": model.state_dict(),
-            "optimizer": optimizer.state_dict(),
-            "epoch": e,
-            "last_lr": scheduler.get_last_lr()[-1],
-        }
-        
-        torch.save(checkpoint, os.path.join(save_path, f"{args.task_name}_model_latest.pth"))
-        if vd.mean() < min_derr:
-            min_derr = vd.mean()
+        if rank == 0:
             checkpoint = {
                 "model": model.state_dict(),
                 "optimizer": optimizer.state_dict(),
                 "epoch": e,
                 "last_lr": scheduler.get_last_lr()[-1],
-                "degree error": min_derr
             }
-            torch.save(checkpoint, os.path.join(save_path, f"{args.task_name}_model_best.pth"))
+            
+            torch.save(checkpoint, os.path.join(save_path, f"{args.task_name}_model_latest.pth"))
+            if vd.mean() < min_derr:
+                min_derr = vd.mean()
+                checkpoint = {
+                    "model": model.state_dict(),
+                    "optimizer": optimizer.state_dict(),
+                    "epoch": e,
+                    "last_lr": scheduler.get_last_lr()[-1],
+                    "degree error": min_derr
+                }
+                torch.save(checkpoint, os.path.join(save_path, f"{args.task_name}_model_best.pth"))
+
+    cleanup()
 
 
 def main(args):
@@ -207,7 +231,13 @@ def main(args):
     validset = Matterport3D(args.data_root, 'val')
 
     model = LightPose(features='superpoint')
-    train(args, model, trainset, validset)
+
+    mp.spawn(
+        train,
+        args=(args, model, trainset, validset),
+        nprocs=args.world_size,
+        join=True,
+    )
 
 
 def get_args():
@@ -225,7 +255,8 @@ def get_args():
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--num_workers', type=int, default=8)
     
-    parser.add_argument('--device', type=str, default='cuda:1')
+    parser.add_argument('--master_port', type=int, default=12355)
+    parser.add_argument('--world_size', type=int, default=2)
     # parser.add_argument('--use_amp', action='store_true')
 
     args = parser.parse_args()

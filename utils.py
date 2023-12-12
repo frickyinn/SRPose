@@ -1,5 +1,18 @@
+import os
+import numpy as np
+import random
 import torch
 import torch.nn.functional as F
+
+
+def seed_torch(seed):
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
 
 
 def quaternion_degree_difference(q1, q2):
