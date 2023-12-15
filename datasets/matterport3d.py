@@ -26,7 +26,12 @@ class Matterport3D(Dataset):
             
             rel_rotation = data['rel_pose']['rotation']
             rel_translation = data['rel_pose']['position']
-            intrinsics = [[517.97, 517.97, 320, 240], [517.97, 517.97, 320, 240]]
+            intrinsic = [
+                [517.97, 0, 320],
+                [0, 517.97, 240],
+                [0, 0, 1]
+            ]
+            intrinsics = [intrinsic, intrinsic]
 
             scene_info['images'].append(images)
             scene_info['rotation'].append(rel_rotation)
@@ -62,12 +67,12 @@ class Matterport3D(Dataset):
         rotation /= rotation.norm(2)
         rotation = rotation_matrix_from_quaternion(rotation[None,])[0]
 
-        if self.is_training and np.random.rand() > 0.5:
-            images = images[[1, 0]]
+        # if self.is_training and np.random.rand() > 0.5:
+        #     images = images[[1, 0]]
 
-            rotation = rotation.mT
-            translation = -rotation @ translation.unsqueeze(-1)
-            translation = translation[:, 0]
+        #     rotation = rotation.mT
+        #     translation = -rotation @ translation.unsqueeze(-1)
+        #     translation = translation[:, 0]
 
         return {
             'images': images,

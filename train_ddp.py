@@ -11,9 +11,9 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-from datasets import Matterport3D
+from datasets.matterport3d import Matterport3D
+from datasets.augmentation import RGBDAugmentor
 from model import LightPose
-from augmentation import RGBDAugmentor
 from lightglue import SuperPoint
 from utils import seed_torch, rot_angle_error
 
@@ -57,8 +57,9 @@ def train(rank, args, model, trainset, validset):
     os.makedirs(args.save_path, exist_ok=True)
     os.makedirs(save_path, exist_ok=True)
 
-    train_writer = SummaryWriter(f'./log/{args.task_name}_{run_id}_train')
-    valid_writer = SummaryWriter(f'./log/{args.task_name}_{run_id}_valid')
+    if rank == 0:
+        train_writer = SummaryWriter(f'./log/{args.task_name}_{run_id}_train')
+        valid_writer = SummaryWriter(f'./log/{args.task_name}_{run_id}_valid')
     
     start_epoch = 0
     # if args.resume is not None:
@@ -88,8 +89,9 @@ def train(rank, args, model, trainset, validset):
                 images = batch['images']
                 rotation = batch['rotation'].to(rank)
                 translation = batch['translation'].to(rank)
+                intrinsics = batch['intrinsics'].to(rank)
 
-                image_size = images.shape[-2:][::-1]
+                # image_size = images.shape[-2:][::-1]
                 image0 = images[:, 0, ...]
                 image1 = images[:, 1, ...]
                 image0 = augment(image0)
@@ -99,7 +101,7 @@ def train(rank, args, model, trainset, validset):
                     feats0 = extractor({'image': image0.to(rank)})
                     feats1 = extractor({'image': image1.to(rank)})
                 
-                pred_r, pred_t = model({'image0': {**feats0, 'image_size': image_size}, 'image1': {**feats1, 'image_size': image_size}})
+                pred_r, pred_t = model({'image0': {**feats0, 'intrinsics': intrinsics[:, 0]}, 'image1': {**feats1, 'intrinsics': intrinsics[:, 1]}})
                 
                 err_r = rot_angle_error(pred_r, rotation)
                 loss_r = criterion(err_r, torch.zeros_like(err_r))
@@ -155,6 +157,7 @@ def train(rank, args, model, trainset, validset):
                     images = batch['images']
                     rotation = batch['rotation'].to(rank)
                     translation = batch['translation'].to(rank)
+                    intrinsics = batch['inrinsics'].to(rank)
 
                     image0 = images[:, 0, ...]
                     image1 = images[:, 1, ...]
@@ -162,8 +165,8 @@ def train(rank, args, model, trainset, validset):
                     feats0 = extractor({'image': image0.to(rank)})
                     feats1 = extractor({'image': image1.to(rank)})
 
-                    image_size = images.shape[-2:][::-1]
-                    pred_r, pred_t = model({'image0': {**feats0, 'image_size': image_size}, 'image1': {**feats1, 'image_size': image_size}})
+                    # image_size = images.shape[-2:][::-1]
+                    pred_r, pred_t = model({'image0': {**feats0, 'intrinsics': intrinsics[:, 0]}, 'image1': {**feats1, 'intrinsics': intrinsics[:, 1]}})
 
                     err_r = rot_angle_error(pred_r, rotation)
                     loss_r = criterion(err_r, torch.zeros_like(err_r))

@@ -14,18 +14,31 @@ torch.backends.cudnn.deterministic = True
 torch.set_float32_matmul_precision('high')
 
 
+# @torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
+# def normalize_keypoints(
+#     kpts: torch.Tensor, size: Optional[torch.Tensor] = None
+# ) -> torch.Tensor:
+#     if size is None:
+#         size = 1 + kpts.max(-2).values - kpts.min(-2).values
+#     elif not isinstance(size, torch.Tensor):
+#         size = torch.tensor(size, device=kpts.device, dtype=kpts.dtype)
+#     size = size.to(kpts)
+#     shift = size / 2
+#     scale = size.max(-1).values / 2
+#     kpts = (kpts - shift[..., None, :]) / scale[..., None, None]
+#     return kpts
+
 @torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
-def normalize_keypoints(
-    kpts: torch.Tensor, size: Optional[torch.Tensor] = None
-) -> torch.Tensor:
-    if size is None:
-        size = 1 + kpts.max(-2).values - kpts.min(-2).values
-    elif not isinstance(size, torch.Tensor):
-        size = torch.tensor(size, device=kpts.device, dtype=kpts.dtype)
-    size = size.to(kpts)
-    shift = size / 2
-    scale = size.max(-1).values / 2
-    kpts = (kpts - shift[..., None, :]) / scale[..., None, None]
+def normalize_keypoints(kpts, intrinsics):
+    # kpts: (B, M, 2)
+    # intrinsics: (B, 3, 3)
+
+    b, m, _ = kpts.shape
+    kpts = torch.cat([kpts, torch.ones((b, m, 1), device=kpts.device)], dim=2)
+    kpts = intrinsics.inverse() @ kpts.mT
+    kpts = kpts.mT
+    kpts = kpts[..., :2]
+
     return kpts
 
 
@@ -331,12 +344,13 @@ class LightPose(nn.Module):
             assert key in data, f"Missing key {key} in data"
         data0, data1 = data["image0"], data["image1"]
         kpts0, kpts1 = data0["keypoints"], data1["keypoints"]
+        intrinsic0, intrinsic1 = data0["intrinsics"], data1["intrinsics"]
         b, m, _ = kpts0.shape
         b, n, _ = kpts1.shape
         # device = kpts0.device
-        size0, size1 = data0.get("image_size"), data1.get("image_size")
-        kpts0 = normalize_keypoints(kpts0, size0).clone()
-        kpts1 = normalize_keypoints(kpts1, size1).clone()
+        # size0, size1 = data0.get("image_size"), data1.get("image_size")
+        # kpts0 = normalize_keypoints(kpts0, size0).clone()
+        # kpts1 = normalize_keypoints(kpts1, size1).clone()
 
         if self.conf.add_scale_ori:
             kpts0 = torch.cat(
@@ -383,6 +397,10 @@ class LightPose(nn.Module):
         desc0 = self.input_proj(desc0)
         desc1 = self.input_proj(desc1)
         # cache positional embeddings
+
+        kpts0 = normalize_keypoints(kpts0, intrinsic0)
+        kpts1 = normalize_keypoints(kpts1, intrinsic1)
+
         encoding0 = self.posenc(kpts0).unsqueeze(-3)
         encoding1 = self.posenc(kpts1).unsqueeze(-3)
         # encoding0 = torch.zeros_like(encoding0, device=encoding0.device)

@@ -6,9 +6,9 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from datasets import Matterport3D
+from datasets.matterport3d import Matterport3D
+from datasets.augmentation import RGBDAugmentor
 from model import LightPose
-from augmentation import RGBDAugmentor
 from lightglue import SuperPoint
 from utils import seed_torch, rot_angle_error
 
@@ -66,8 +66,9 @@ def train(args, model, trainset, validset):
                 images = batch['images']
                 rotation = batch['rotation'].to(device)
                 translation = batch['translation'].to(device)
+                intrinsics = batch['intrinsics'].to(device)
 
-                image_size = images.shape[-2:][::-1]
+                # image_size = images.shape[-2:][::-1]
                 image0 = images[:, 0, ...]
                 image1 = images[:, 1, ...]
                 image0 = augment(image0)
@@ -77,7 +78,7 @@ def train(args, model, trainset, validset):
                     feats0 = extractor({'image': image0.to(device)})
                     feats1 = extractor({'image': image1.to(device)})
                 
-                pred_r, pred_t = model({'image0': {**feats0, 'image_size': image_size}, 'image1': {**feats1, 'image_size': image_size}})
+                pred_r, pred_t = model({'image0': {**feats0, 'intrinsics': intrinsics[:, 0]}, 'image1': {**feats1, 'intrinsics': intrinsics[:, 1]}})
                 
                 err_r = rot_angle_error(pred_r, rotation)
                 loss_r = criterion(err_r, torch.zeros_like(err_r))
@@ -134,6 +135,7 @@ def train(args, model, trainset, validset):
                     rotation = batch['rotation'].to(device)
                     # rotation = rotation_matrix_from_quaternion(rotation)
                     translation = batch['translation'].to(device)
+                    intrinsics = batch['inrinsics'].to(device)
 
                     image0 = images[:, 0, ...]
                     image1 = images[:, 1, ...]
@@ -141,8 +143,8 @@ def train(args, model, trainset, validset):
                     feats0 = extractor({'image': image0.to(device)})
                     feats1 = extractor({'image': image1.to(device)})
 
-                    image_size = images.shape[-2:][::-1]
-                    pred_r, pred_t = model({'image0': {**feats0, 'image_size': image_size}, 'image1': {**feats1, 'image_size': image_size}})
+                    # image_size = images.shape[-2:][::-1]
+                    pred_r, pred_t = model({'image0': {**feats0, 'intrinsics': intrinsics[:, 0]}, 'image1': {**feats1, 'intrinsics': intrinsics[:, 1]}})
 
                     err_r = rot_angle_error(pred_r, rotation)
                     loss_r = criterion(err_r, torch.zeros_like(err_r))

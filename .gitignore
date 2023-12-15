@@ -1,3 +1,6 @@
 /__pycache__
 /checkpoints
 /log
+/datasets/__pycache__
+*.ipynb
+/pyramid
