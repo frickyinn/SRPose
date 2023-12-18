@@ -397,7 +397,11 @@ class LightPose(nn.Module):
 
         if self.conf.task == "object":
             bbox = data0["bbox"] # (B, 4)
-            ind0 = self.get_prompted_indices(kpts0, bbox)
+            ind0, mask0 = self.get_prompted_indices(kpts0, bbox)
+
+            matchability[:, 0] = torch.zeros_like(matchability[:, 0], device=matchability.device)
+            desc0[:, 0] = torch.zeros_like(desc0[:, 0], device=desc0.device)
+            kpts0[:, 0] = torch.zeros_like(kpts0[:, 0], device=kpts0.device)
 
             matchability = gather(matchability, ind0)
             desc0 = gather(desc0, ind0)
@@ -449,10 +453,12 @@ class LightPose(nn.Module):
     def get_prompted_indices(self, kpts, bbox):
         # kpts: (B, M, 2)
         # bbox: (B, 4) - (x, y, x, y)
-
         x, y = kpts[..., 0], kpts[..., 1]
-        mask = (x >= bbox[:, 0].unsqueeze(-1)) and (x <= bbox[:, 2].unsqueeze(-1))
-        mask &= (y >= bbox[:, 1].unsqueeze(-1)) and (y <= bbox[:, 3].unsqueeze(-1))
+        mask = (x >= bbox[:, 0].unsqueeze(-1)) & (x <= bbox[:, 2].unsqueeze(-1))
+        mask &= (y >= bbox[:, 1].unsqueeze(-1)) & (y <= bbox[:, 3].unsqueeze(-1))
+        mask_sorted, indices = mask.long().sort(descending=True)
+        indices *= mask_sorted
+        indices = indices[:, :mask_sorted.sum(-1).max()]
+        mask_sorted = mask_sorted[:, :mask_sorted.sum(-1).max()]
 
-        indices = torch.where(mask)
-        return indices
+        return indices, mask_sorted

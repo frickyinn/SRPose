@@ -1,5 +1,5 @@
 import json
-
+from pathlib import Path
 import math
 import random
 
@@ -47,8 +47,8 @@ class BOPDataset(Dataset):
                  dataset_path,
                  scene_path,
                  object_id,
-                 visib_threshold=0.5,
-                 rbg_postfix='.png',
+                 visib_threshold,
+                 rgb_postfix='.png',
                  object_scale=None
                  ):
         super().__init__()
@@ -108,7 +108,7 @@ class BOPDataset(Dataset):
             self.mask_dir / f'{frame_ind:06d}_{obj_ind:06d}.png'
             for frame_ind, obj_ind in self.scene_object_inds.items()
         ]
-        self.color_paths = sorted([self.color_dir / f'{frame_ind:06d}{rbg_postfix}'
+        self.color_paths = sorted([self.color_dir / f'{frame_ind:06d}{rgb_postfix}'
                                    for frame_ind in self.scene_object_inds.keys()])
         
         visib_filter = np.array(self.gt_info['visib_fract']) > visib_threshold
@@ -169,7 +169,7 @@ class BOPDataset(Dataset):
                     if cam_d['obj_id'] == self.object_id:
                         rotation = torch.tensor(
                             cam_d['cam_R_m2c'], dtype=torch.float32).reshape(3, 3)
-                        translation = torch.tensor(cam_d['cam_t_m2c'], dtype=torch.float32)
+                        translation = torch.tensor(cam_d['cam_t_m2c'], dtype=torch.float32) / 1000.
                         # quaternion = three.quaternion.mat_to_quat(rotation)
                         # extrinsics.append(three.to_extrinsic_matrix(translation, quaternion))
                         extrinsic = torch.eye(4)
@@ -278,10 +278,23 @@ class BOPDataset(Dataset):
 
 
 class BOPPair(Dataset):
-    def __init__(self, bop_dataset, angle_threshold=45):
-        self.bop_dataset = bop_dataset
+    def __init__(self, data_root, data_type, object_id, visib_threshold=0.5, angle_threshold=60):
+        if data_type == 'train':
+            type_path = 'train_pbr'
+            rgb_postfix = '.jpg'
+            scene_id = object_id
+        elif data_type == 'val':
+            type_path = 'test'
+            rgb_postfix = '.png'
+            scene_id = object_id
+        else:
+            raise f'Wrong data_type {data_type}'
+        
+        data_root = Path(data_root)
+        scene_path = data_root / type_path / f'{scene_id:06d}'
+        self.bop_dataset = BOPDataset(data_root, scene_path, object_id=object_id, visib_threshold=visib_threshold, rgb_postfix=rgb_postfix)
 
-        angle_err = self.get_angle_error(torch.from_numpy(bop_dataset.extrinsics[:, :3, :3]))
+        angle_err = self.get_angle_error(torch.from_numpy(self.bop_dataset.extrinsics[:, :3, :3]))
         index0, index1 = torch.where(angle_err < angle_threshold)
         filter = torch.where(index0 < index1)
         self.index0, self.index1 = index0[filter], index1[filter]

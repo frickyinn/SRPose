@@ -52,7 +52,7 @@ def train(rank, args, model, trainset, validset):
         model = model.to(rank)
 
     augment = RGBDAugmentor()
-    extractor = SuperPoint(max_num_keypoints=1024, detection_threshold=0.0).eval().to(rank)  # load the extractor
+    extractor = SuperPoint(max_num_keypoints=args.num_keypoints, detection_threshold=0.0).eval().to(rank)  # load the extractor
     optimizer = torch.optim.AdamW(list(model.parameters()), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, steps_per_epoch=len(trainloader), epochs=epochs)
     # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=6*len(trainloader), gamma=0.9)
@@ -116,7 +116,11 @@ def train(rank, args, model, trainset, validset):
                     feats0 = extractor({'image': image0.to(rank)})
                     feats1 = extractor({'image': image1.to(rank)})
                 
-                pred_r, pred_t = model({'image0': {**feats0, 'intrinsics': intrinsics[:, 0]}, 'image1': {**feats1, 'intrinsics': intrinsics[:, 1]}})
+                if args.task == 'scene':
+                    pred_r, pred_t = model({'image0': {**feats0, 'intrinsics': intrinsics[:, 0]}, 'image1': {**feats1, 'intrinsics': intrinsics[:, 1]}})
+                elif args.task == 'object':
+                    bboxes = batch['bboxes'].to(rank)
+                    pred_r, pred_t = model({'image0': {**feats0, 'intrinsics': intrinsics[:, 0], 'bbox': bboxes[:, 0]}, 'image1': {**feats1, 'intrinsics': intrinsics[:, 1]}})
                 
                 err_r = rot_angle_error(pred_r, rotation)
                 loss_r = criterion(err_r, torch.zeros_like(err_r))
@@ -149,7 +153,7 @@ def train(rank, args, model, trainset, validset):
                     'Train M Med. Avg.': f'{tm.median():.2f}, {tm.mean():.2f}',
                 })
                 t.update(1)
-                break
+                # break
             if world_size == 1 or rank == 0:
                 train_writer.add_scalar('Rotation Loss', train_loss_r / train_batch, e+1)
                 train_writer.add_scalar('Translation Loss', train_loss_t / train_batch, e+1)
@@ -181,7 +185,11 @@ def train(rank, args, model, trainset, validset):
                     feats1 = extractor({'image': image1.to(rank)})
 
                     # image_size = images.shape[-2:][::-1]
-                    pred_r, pred_t = model({'image0': {**feats0, 'intrinsics': intrinsics[:, 0]}, 'image1': {**feats1, 'intrinsics': intrinsics[:, 1]}})
+                    if args.task == 'scene':
+                        pred_r, pred_t = model({'image0': {**feats0, 'intrinsics': intrinsics[:, 0]}, 'image1': {**feats1, 'intrinsics': intrinsics[:, 1]}})
+                    elif args.task == 'object':
+                        bboxes = batch['bboxes'].to(rank)
+                        pred_r, pred_t = model({'image0': {**feats0, 'intrinsics': intrinsics[:, 0], 'bbox': bboxes[:, 0]}, 'image1': {**feats1, 'intrinsics': intrinsics[:, 1]}})
 
                     err_r = rot_angle_error(pred_r, rotation)
                     loss_r = criterion(err_r, torch.zeros_like(err_r))
@@ -252,8 +260,12 @@ def main(args):
 
     model = LightPose(features='superpoint', task=args.task)
     
-    trainset = dataset_dict[args.dataset](args.data_root, 'train')
-    validset = dataset_dict[args.dataset](args.data_root, 'val')
+    if args.task == 'scene':
+        trainset = dataset_dict[args.task][args.dataset](args.data_root, 'train')
+        validset = dataset_dict[args.task][args.dataset](args.data_root, 'val')
+    elif args.task == 'object':
+        trainset = dataset_dict[args.task][args.dataset](args.data_root, 'train', args.object_id)
+        validset = dataset_dict[args.task][args.dataset](args.data_root, 'val', args.object_id)
 
     if args.world_size > 1:
         mp.spawn(
@@ -266,18 +278,21 @@ def main(args):
         train(args.device, args, model, trainset, validset)
 
 
-def get_args():
+def get_parser():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--task', type=str, help='scene | object')
     parser.add_argument('--dataset', type=str, help='matterport | bop')
     parser.add_argument('--data_root', type=str, default='/mnt/ssd/yinrui/mp3d')
 
+    parser.add_argument('--object_id', type=int, default=4)
+
     parser.add_argument('--save_path', type=str, default='./checkpoints')
     parser.add_argument('--resume', type=str, default=None)
 
     parser.add_argument('--epochs', type=int, default=120)
     parser.add_argument('--lr', type=float, default=2e-4)
+    parser.add_argument('--num_keypoints', type=float, default=1024)
 
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--num_workers', type=int, default=8)
@@ -287,11 +302,10 @@ def get_args():
     parser.add_argument('--device', type=str, default='cuda:0')
     # parser.add_argument('--use_amp', action='store_true')
 
-    args = parser.parse_args()
-
-    return args
+    return parser
 
 
 if __name__ == "__main__":
-    args = get_args()
+    parser = get_parser()
+    args = parser.parse_args()
     main(args)
