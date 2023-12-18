@@ -37,16 +37,16 @@ def train(args, model, trainset, validset):
     valid_writer = SummaryWriter(f'./log/{args.task_name}_{run_id}_valid')
     
     start_epoch = 0
-    # if args.resume is not None:
-    #     if os.path.isfile(args.resume):
-    #         checkpoint = torch.load(args.resume)
-    #         start_epoch = checkpoint["epoch"] + 1
-    #         model.load_state_dict(checkpoint["model"])
-    #         optimizer.load_state_dict(checkpoint["optimizer"])
-    #         for state in optimizer.state.values():
-    #             for k, v in state.items():
-    #                 if isinstance(v, torch.Tensor):
-    #                     state[k] = v.to(args.device)
+    if args.resume is not None:
+        if os.path.isfile(args.resume):
+            checkpoint = torch.load(args.resume, map_location=args.device)
+            start_epoch = checkpoint["epoch"] + 1
+            model.load_state_dict(checkpoint["model"])
+            optimizer.load_state_dict(checkpoint["optimizer"])
+            for state in optimizer.state.values():
+                for k, v in state.items():
+                    if isinstance(v, torch.Tensor):
+                        state[k] = v.to(args.device)
 
     model = model.to(device)
 
@@ -104,6 +104,7 @@ def train(args, model, trainset, validset):
 
                 td = torch.cat(train_degrees) * 180 / torch.pi
                 tm = torch.cat(train_meters)
+                # TODO add 30d/1m acc
                 t.set_postfix({
                     'Train R Loss': f'{train_loss_r / train_batch:.4f}',
                     'Train T Loss': f'{train_loss_t / train_batch:.4f}',
@@ -112,7 +113,7 @@ def train(args, model, trainset, validset):
                 })
                 t.update(1)
                 # break
-
+            # TODO add 30d/1m acc
             train_writer.add_scalar('Rotation Loss', train_loss_r / train_batch, e+1)
             train_writer.add_scalar('Translation Loss', train_loss_t / train_batch, e+1)
             train_writer.add_scalar('Degree Error Med.', td.median(), e+1)
@@ -166,6 +167,7 @@ def train(args, model, trainset, validset):
 
                     vd = torch.cat(valid_degrees) * 180 / torch.pi
                     vm = torch.cat(valid_meters)
+                    # TODO add 30d/1m acc
                     t.set_postfix({
                         'Valid R Loss': f'{valid_loss_r / valid_batch:.4f}',
                         'Valid T Loss': f'{valid_loss_t / valid_batch:.4f}',
@@ -174,7 +176,7 @@ def train(args, model, trainset, validset):
                     })
                     t.update(1)
                     # break
-
+                # TODO add 30d/1m acc
                 valid_writer.add_scalar('Rotation Loss', valid_loss_r / valid_batch, e+1)
                 valid_writer.add_scalar('Translation Loss', valid_loss_t / valid_batch, e+1)
                 valid_writer.add_scalar('Degree Error Med.', vd.median(), e+1)

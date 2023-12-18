@@ -11,8 +11,7 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-from datasets.matterport3d import Matterport3D
-from datasets.augmentation import RGBDAugmentor
+from datasets import RGBDAugmentor, dataset_dict
 from model import LightPose
 from lightglue import SuperPoint
 from utils import seed_torch, rot_angle_error
@@ -31,18 +30,26 @@ def cleanup():
 
 
 def train(rank, args, model, trainset, validset):
-    print(f"Running DDP on rank {rank}.")
-    setup(rank, args.master_port, args.world_size)
-
     epochs = args.epochs
+    world_size = args.world_size
 
-    trainsampler = DistributedSampler(trainset)
-    validsampler = DistributedSampler(validset, shuffle=False)
-    trainloader = DataLoader(trainset, batch_size=args.batch_size, num_workers=args.num_workers, pin_memory=True, sampler=trainsampler)
-    validloader = DataLoader(validset, batch_size=args.batch_size, num_workers=args.num_workers, pin_memory=True, sampler=validsampler)
+    if world_size > 1:
+        print(f"Running DDP on rank {rank}.")
+        setup(rank, args.master_port, world_size)
 
-    model = model.to(rank)
-    model = DDP(model, device_ids=[rank])
+        trainsampler = DistributedSampler(trainset)
+        validsampler = DistributedSampler(validset, shuffle=False)
+        trainloader = DataLoader(trainset, batch_size=args.batch_size, num_workers=args.num_workers, pin_memory=True, sampler=trainsampler)
+        validloader = DataLoader(validset, batch_size=args.batch_size, num_workers=args.num_workers, pin_memory=True, sampler=validsampler)
+
+        model = model.to(rank)
+        model = DDP(model, device_ids=[rank])
+
+    else:
+        trainloader = DataLoader(trainset, batch_size=args.batch_size, num_workers=args.num_workers, pin_memory=True, shuffle=True)
+        validloader = DataLoader(validset, batch_size=args.batch_size, num_workers=args.num_workers, pin_memory=True)
+        
+        model = model.to(rank)
 
     augment = RGBDAugmentor()
     extractor = SuperPoint(max_num_keypoints=1024, detection_threshold=0.0).eval().to(rank)  # load the extractor
@@ -53,25 +60,33 @@ def train(rank, args, model, trainset, validset):
     criterion = torch.nn.HuberLoss()
 
     run_id = datetime.now().strftime("%Y%m%d_%H%M")
-    save_path = os.path.join(args.save_path, f'{args.task_name}_{run_id}')
+    save_path = os.path.join(args.save_path, f'{args.task}_{args.dataset}_{run_id}')
     os.makedirs(args.save_path, exist_ok=True)
     os.makedirs(save_path, exist_ok=True)
 
-    if rank == 0:
-        train_writer = SummaryWriter(f'./log/{args.task_name}_{run_id}_train')
-        valid_writer = SummaryWriter(f'./log/{args.task_name}_{run_id}_valid')
+    if world_size == 1 or rank == 0:
+        train_writer = SummaryWriter(f'./log/{args.task}_{args.dataset}_{run_id}_train')
+        valid_writer = SummaryWriter(f'./log/{args.task}_{args.dataset}_{run_id}_valid')
     
     start_epoch = 0
-    # if args.resume is not None:
-    #     if os.path.isfile(args.resume):
-    #         checkpoint = torch.load(args.resume)
-    #         start_epoch = checkpoint["epoch"] + 1
-    #         model.load_state_dict(checkpoint["model"])
-    #         optimizer.load_state_dict(checkpoint["optimizer"])
-    #         for state in optimizer.state.values():
-    #             for k, v in state.items():
-    #                 if isinstance(v, torch.Tensor):
-    #                     state[k] = v.to(args.rank)
+    if args.resume is not None and os.path.isfile(args.resume):
+        if world_size > 1:
+            dist.barrier()
+            map_location = {'cuda:%d' % 0: 'cuda:%d' % rank}
+            checkpoint = torch.load(args.resume, map_location=map_location)
+            model.module.load_state_dict(checkpoint["model"])
+        else:
+            map_location = rank
+            checkpoint = torch.load(args.resume, map_location=map_location)
+            model.load_state_dict(checkpoint["model"])
+        
+        start_epoch = checkpoint["epoch"] + 1
+        optimizer.load_state_dict(checkpoint["optimizer"])
+        scheduler.load_state_dict(checkpoint["scheduler"])
+        for state in optimizer.state.values():
+            for k, v in state.items():
+                if isinstance(v, torch.Tensor):
+                    state[k] = v.to(rank)
 
     min_derr = 180
     for e in range(start_epoch, epochs):
@@ -134,8 +149,8 @@ def train(rank, args, model, trainset, validset):
                     'Train M Med. Avg.': f'{tm.median():.2f}, {tm.mean():.2f}',
                 })
                 t.update(1)
-                # break
-            if rank == 0:
+                break
+            if world_size == 1 or rank == 0:
                 train_writer.add_scalar('Rotation Loss', train_loss_r / train_batch, e+1)
                 train_writer.add_scalar('Translation Loss', train_loss_t / train_batch, e+1)
                 train_writer.add_scalar('Degree Error Med.', td.median(), e+1)
@@ -157,7 +172,7 @@ def train(rank, args, model, trainset, validset):
                     images = batch['images']
                     rotation = batch['rotation'].to(rank)
                     translation = batch['translation'].to(rank)
-                    intrinsics = batch['inrinsics'].to(rank)
+                    intrinsics = batch['intrinsics'].to(rank)
 
                     image0 = images[:, 0, ...]
                     image1 = images[:, 1, ...]
@@ -196,7 +211,7 @@ def train(rank, args, model, trainset, validset):
                     })
                     t.update(1)
                     # break
-                if rank == 0:
+                if world_size == 1 or rank == 0:
                     valid_writer.add_scalar('Rotation Loss', valid_loss_r / valid_batch, e+1)
                     valid_writer.add_scalar('Translation Loss', valid_loss_t / valid_batch, e+1)
                     valid_writer.add_scalar('Degree Error Med.', vd.median(), e+1)
@@ -204,53 +219,62 @@ def train(rank, args, model, trainset, validset):
                     valid_writer.add_scalar('Meter Error Med.', vm.median(), e+1)
                     valid_writer.add_scalar('Meter Error Avg.', vm.mean(), e+1)
 
-        if rank == 0:
+        if world_size == 1 or rank == 0:
+            module = model.module if world_size > 1 else model
             checkpoint = {
-                "model": model.state_dict(),
+                "model": module.state_dict(),
                 "optimizer": optimizer.state_dict(),
+                "scheduler": scheduler.state_dict(),
                 "epoch": e,
                 "last_lr": scheduler.get_last_lr()[-1],
+                "degree error": vd.mean()
             }
             
-            torch.save(checkpoint, os.path.join(save_path, f"{args.task_name}_model_latest.pth"))
+            torch.save(checkpoint, os.path.join(save_path, f"{args.task}_{args.dataset}_model_latest.pth"))
             if vd.mean() < min_derr:
                 min_derr = vd.mean()
                 checkpoint = {
-                    "model": model.state_dict(),
+                    "model": module.state_dict(),
                     "optimizer": optimizer.state_dict(),
+                    "scheduler": scheduler.state_dict(),
                     "epoch": e,
                     "last_lr": scheduler.get_last_lr()[-1],
                     "degree error": min_derr
                 }
-                torch.save(checkpoint, os.path.join(save_path, f"{args.task_name}_model_best.pth"))
+                torch.save(checkpoint, os.path.join(save_path, f"{args.task}_{args.dataset}_model_best.pth"))
 
-    cleanup()
+    if world_size > 1:
+        cleanup()
 
 
 def main(args):
     seed_torch(3407)
 
-    trainset = Matterport3D(args.data_root, 'train')
-    validset = Matterport3D(args.data_root, 'val')
+    model = LightPose(features='superpoint', task=args.task)
+    
+    trainset = dataset_dict[args.dataset](args.data_root, 'train')
+    validset = dataset_dict[args.dataset](args.data_root, 'val')
 
-    model = LightPose(features='superpoint')
-
-    mp.spawn(
-        train,
-        args=(args, model, trainset, validset),
-        nprocs=args.world_size,
-        join=True,
-    )
+    if args.world_size > 1:
+        mp.spawn(
+            train,
+            args=(args, model, trainset, validset),
+            nprocs=args.world_size,
+            join=True,
+        )
+    else:
+        train(args.device, args, model, trainset, validset)
 
 
 def get_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--task_name', type=str, default='r6d')
+    parser.add_argument('--task', type=str, help='scene | object')
+    parser.add_argument('--dataset', type=str, help='matterport | bop')
     parser.add_argument('--data_root', type=str, default='/mnt/ssd/yinrui/mp3d')
 
     parser.add_argument('--save_path', type=str, default='./checkpoints')
-    # parser.add_argument('--resume', type=str, default=None)
+    parser.add_argument('--resume', type=str, default=None)
 
     parser.add_argument('--epochs', type=int, default=120)
     parser.add_argument('--lr', type=float, default=2e-4)
@@ -260,6 +284,7 @@ def get_args():
     
     parser.add_argument('--master_port', type=int, default=12355)
     parser.add_argument('--world_size', type=int, default=2)
+    parser.add_argument('--device', type=str, default='cuda:0')
     # parser.add_argument('--use_amp', action='store_true')
 
     args = parser.parse_args()

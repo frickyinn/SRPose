@@ -208,6 +208,7 @@ class LightPose(nn.Module):
         "n_layers": 3,
         "num_heads": 4,
         "pct_pruning": 0,
+        "task": "scene",
         "mp": False,  # enable mixed precision
         "weights": None,
     }
@@ -394,6 +395,14 @@ class LightPose(nn.Module):
             kpts0 = gather(kpts0, ind0)
             kpts1 = gather(kpts1, ind1)
 
+        if self.conf.task == "object":
+            bbox = data0["bbox"] # (B, 4)
+            ind0 = self.get_prompted_indices(kpts0, bbox)
+
+            matchability = gather(matchability, ind0)
+            desc0 = gather(desc0, ind0)
+            kpts0 = gather(kpts0, ind0)
+
         desc0 = self.input_proj(desc0)
         desc1 = self.input_proj(desc1)
         # cache positional embeddings
@@ -436,3 +445,14 @@ class LightPose(nn.Module):
         indices1 = indices1[:, num_pruning1:]
 
         return indices0, indices1
+    
+    def get_prompted_indices(self, kpts, bbox):
+        # kpts: (B, M, 2)
+        # bbox: (B, 4) - (x, y, x, y)
+
+        x, y = kpts[..., 0], kpts[..., 1]
+        mask = (x >= bbox[:, 0].unsqueeze(-1)) and (x <= bbox[:, 2].unsqueeze(-1))
+        mask &= (y >= bbox[:, 1].unsqueeze(-1)) and (y <= bbox[:, 3].unsqueeze(-1))
+
+        indices = torch.where(mask)
+        return indices

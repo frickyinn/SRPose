@@ -310,14 +310,9 @@ class BOPPair(Dataset):
         images = torch.stack([data0['color'], data1['color']], dim=0)
 
         ex0, ex1 = data0['extrinsic'], data1['extrinsic']
-        ex0, ex1 = ex0.inverse(), ex1.inverse()
-
-        R0, R1 = ex0[:3, :3], ex1[:3, :3]
-        t0, t1 = ex0[:3, 3], ex1[:3, 3]
-
-        R0_inv = R0.inverse()
-        rel_R = R0_inv @ R1
-        rel_t = R0_inv @ (t1 - t0) / 100 # scale mm to dm
+        rel_ex = ex1 @ ex0.inverse()
+        rel_R = rel_ex[:3, :3]
+        rel_t = rel_ex[:3, 3]
 
         intrinsics = torch.stack([data0['intrinsic'], data1['intrinsic']], dim=0)
         bboxes = torch.stack([data0['bbox_obj'], data1['bbox_obj']])
