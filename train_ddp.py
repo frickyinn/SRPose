@@ -11,10 +11,11 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+from lightglue import SuperPoint
 from datasets import RGBDAugmentor, dataset_dict
 from model import LightPose
-from lightglue import SuperPoint
-from utils import seed_torch, rot_angle_error
+from utils import seed_torch, rot_degree_error
+from configs.default import get_cfg_defaults
 
 
 def setup(rank, master_port, world_size):
@@ -90,7 +91,7 @@ def train(rank, args, model, trainset, validset):
 
     min_derr = 180
     for e in range(start_epoch, epochs):
-        with tqdm(desc=f'Train Epoch {e+1}', total=len(trainloader)) as t:
+        with tqdm(desc=f'Train Epoch {e+1}', total=len(trainloader), disabled=(rank != 0)) as t:
             train_loss_r = 0
             train_loss_t = 0
             train_batch = 0
@@ -122,7 +123,7 @@ def train(rank, args, model, trainset, validset):
                     bboxes = batch['bboxes'].to(rank)
                     pred_r, pred_t = model({'image0': {**feats0, 'intrinsics': intrinsics[:, 0], 'bbox': bboxes[:, 0]}, 'image1': {**feats1, 'intrinsics': intrinsics[:, 1]}})
                 
-                err_r = rot_angle_error(pred_r, rotation)
+                err_r = rot_degree_error(pred_r, rotation)
                 loss_r = criterion(err_r, torch.zeros_like(err_r))
 
                 loss_t = criterion(pred_t, translation)
@@ -163,7 +164,7 @@ def train(rank, args, model, trainset, validset):
                 train_writer.add_scalar('Meter Error Avg.', tm.mean(), e+1)
                 train_writer.add_scalar('Learning Rate', scheduler.get_last_lr()[-1], e+1)
 
-        with tqdm(desc=f'Valid Epoch {e+1}', total=len(validloader)) as t:
+        with tqdm(desc=f'Valid Epoch {e+1}', total=len(validloader), disabled=(rank != 0)) as t:
             valid_loss_r = 0
             valid_loss_t = 0
             valid_batch = 0
@@ -191,7 +192,7 @@ def train(rank, args, model, trainset, validset):
                         bboxes = batch['bboxes'].to(rank)
                         pred_r, pred_t = model({'image0': {**feats0, 'intrinsics': intrinsics[:, 0], 'bbox': bboxes[:, 0]}, 'image1': {**feats1, 'intrinsics': intrinsics[:, 1]}})
 
-                    err_r = rot_angle_error(pred_r, rotation)
+                    err_r = rot_degree_error(pred_r, rotation)
                     loss_r = criterion(err_r, torch.zeros_like(err_r))
                     
                     loss_t = criterion(pred_t, translation)
@@ -256,16 +257,16 @@ def train(rank, args, model, trainset, validset):
 
 
 def main(args):
-    seed_torch(3407)
+    config = get_cfg_defaults()
+    config.merge_from_file(args.config_path)
+
+    seed_torch(config.RANDOM_SEED)
 
     model = LightPose(features='superpoint', task=args.task)
-    
-    if args.task == 'scene':
-        trainset = dataset_dict[args.task][args.dataset](args.data_root, 'train')
-        validset = dataset_dict[args.task][args.dataset](args.data_root, 'val')
-    elif args.task == 'object':
-        trainset = dataset_dict[args.task][args.dataset](args.data_root, 'train', args.object_id)
-        validset = dataset_dict[args.task][args.dataset](args.data_root, 'val', args.object_id)
+        
+    build_fn = dataset_dict[args.task][args.dataset]
+    trainset = build_fn('train', config)
+    validset = build_fn('val', config)
 
     if args.world_size > 1:
         mp.spawn(
@@ -283,24 +284,8 @@ def get_parser():
 
     parser.add_argument('--task', type=str, help='scene | object')
     parser.add_argument('--dataset', type=str, help='matterport | bop')
-    parser.add_argument('--data_root', type=str, default='/mnt/ssd/yinrui/mp3d')
-
-    parser.add_argument('--object_id', type=int, default=4)
-
-    parser.add_argument('--save_path', type=str, default='./checkpoints')
+    parser.add_argument('--config_path', type=str, help='.yaml configure file')
     parser.add_argument('--resume', type=str, default=None)
-
-    parser.add_argument('--epochs', type=int, default=120)
-    parser.add_argument('--lr', type=float, default=2e-4)
-    parser.add_argument('--num_keypoints', type=float, default=1024)
-
-    parser.add_argument('--batch_size', type=int, default=32)
-    parser.add_argument('--num_workers', type=int, default=8)
-    
-    parser.add_argument('--master_port', type=int, default=12355)
-    parser.add_argument('--world_size', type=int, default=2)
-    parser.add_argument('--device', type=str, default='cuda:0')
-    # parser.add_argument('--use_amp', action='store_true')
 
     return parser
 

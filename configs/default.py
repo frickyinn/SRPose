@@ -1,0 +1,63 @@
+from yacs.config import CfgNode as CN
+
+
+_CN = CN()
+
+# Model
+_CN.MODEL = CN()
+_CN.MODEL.NUM_KEYPOINTS = 1024
+
+# Dataset
+_CN.DATASET = CN()
+_CN.DATASET.DATA_SOURCE = None
+_CN.DATASET.DATA_ROOT = None
+_CN.DATASET.MIN_OVERLAP_SCORE = None
+
+## For Linemod(BOP)
+_CN.DATASET.OBJECT_ID = None
+_CN.DATASET.MIN_VISIBLE_FRACT = None
+_CN.DATASET.MAX_ANGLE_ERROR = None
+
+## For MegaDepth/ScanNet
+_CN.DATASET.TRAIN = CN()
+_CN.DATASET.TRAIN.DATA_ROOT = None
+_CN.DATASET.TRAIN.NPZ_ROOT = None
+_CN.DATASET.TRAIN.LIST_PATH = None
+_CN.DATASET.TRAIN.INTRINSIC_PATH = None
+_CN.DATASET.TRAIN.MIN_OVERLAP_SCORE = None
+
+_CN.DATASET.VAL = CN()
+_CN.DATASET.VAL.DATA_ROOT = None
+_CN.DATASET.VAL.NPZ_ROOT = None
+_CN.DATASET.VAL.LIST_PATH = None
+_CN.DATASET.VAL.INTRINSIC_PATH = None
+_CN.DATASET.VAL.MIN_OVERLAP_SCORE = None
+
+_CN.DATASET.TEST = CN()
+_CN.DATASET.TEST.DATA_ROOT = None
+_CN.DATASET.TEST.NPZ_ROOT = None
+_CN.DATASET.TEST.LIST_PATH = None
+_CN.DATASET.TEST.INTRINSIC_PATH = None
+_CN.DATASET.TEST.MIN_OVERLAP_SCORE = None
+
+# Train
+_CN.TRAINER = CN()
+_CN.TRAINER.WORLD_SIZE = 2
+_CN.TRAINER.MASTER_PORT = 12355
+_CN.TRAINER.DEVICE = 'cuda:0'
+
+_CN.TRAINER.EPOCHS = None
+_CN.TRAINER.LEARNING_RATE = None
+_CN.TRAINER.BATCH_SIZE = None
+_CN.TRAINER.NUM_WORKERS = None
+_CN.TRAINER.PIN_MEMORY = True
+
+_CN.TRAINER.SAVE_PATH = './checkpoints'
+_CN.RANDOM_SEED = 3407
+
+
+def get_cfg_defaults():
+    """Get a yacs CfgNode object with default values for my_project."""
+    # Return a clone so that the defaults will not be altered
+    # This is for the "local variable" use pattern
+    return _CN.clone()

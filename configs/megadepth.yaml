@@ -1,0 +1,26 @@
+DATASET:
+  DATA_SOURCE: "megedepth"
+
+  TRAIN:
+    DATA_ROOT: "data/megadepth/train"
+    NPZ_ROOT: "data/megadepth/index/scene_info_0.1_0.7"
+    LIST_PATH: "data/megadepth/index/trainvaltest_list/train_list.txt"
+    MIN_OVERLAP_SCORE: 0.0
+    
+  VAL:
+    DATA_ROOT: "data/megadepth/test"
+    NPZ_ROOT: "data/megadepth/index/scene_info_val_1500"
+    LIST_PATH: "data/megadepth/index/trainvaltest_list/val_list.txt"
+    MIN_OVERLAP_SCORE: 0.0
+
+  TEST:
+    DATA_ROOT: "data/megadepth/test"
+    NPZ_ROOT: "assets/megadepth_test_1500_scene_info"
+    LIST_PATH: "assets/megadepth_test_1500_scene_info/megadepth_test_1500.txt"
+    MIN_OVERLAP_SCORE: 0.0
+
+TRAINER:
+  EPOCHS: 120
+  LEARNING_RATE: 0.0003
+  BATCH_SIZE: 64
+  NUM_WORKERS: 8

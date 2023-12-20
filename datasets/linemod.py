@@ -47,7 +47,7 @@ class BOPDataset(Dataset):
                  dataset_path,
                  scene_path,
                  object_id,
-                 visib_threshold,
+                 min_visible_fract,
                  rgb_postfix='.png',
                  object_scale=None
                  ):
@@ -111,7 +111,7 @@ class BOPDataset(Dataset):
         self.color_paths = sorted([self.color_dir / f'{frame_ind:06d}{rgb_postfix}'
                                    for frame_ind in self.scene_object_inds.keys()])
         
-        visib_filter = np.array(self.gt_info['visib_fract']) > visib_threshold
+        visib_filter = np.array(self.gt_info['visib_fract']) >= min_visible_fract
         self.color_paths = np.array(self.color_paths)[visib_filter]
         self.mask_paths = np.array(self.mask_paths)[visib_filter]
         self.depth_paths = np.array(self.depth_paths)[visib_filter]
@@ -277,30 +277,32 @@ class BOPDataset(Dataset):
         }
 
 
-class BOPPair(Dataset):
-    def __init__(self, data_root, data_type, object_id, visib_threshold=0.5, angle_threshold=60):
-        if data_type == 'train':
+class Linemod(Dataset):
+    def __init__(self, data_root, mode, object_id, min_visible_fract=0.5, max_angle_error=60):
+        if mode == 'train':
             type_path = 'train_pbr'
             rgb_postfix = '.jpg'
             scene_id = object_id
-        elif data_type == 'val':
+        elif mode == 'val':
             type_path = 'test'
             rgb_postfix = '.png'
             scene_id = object_id
         else:
-            raise f'Wrong data_type {data_type}'
+            raise NotImplementedError(f'mode {mode}')
         
         data_root = Path(data_root)
         scene_path = data_root / type_path / f'{scene_id:06d}'
-        self.bop_dataset = BOPDataset(data_root, scene_path, object_id=object_id, visib_threshold=visib_threshold, rgb_postfix=rgb_postfix)
+        self.bop_dataset = BOPDataset(data_root, scene_path, object_id=object_id, min_visible_fract=min_visible_fract, rgb_postfix=rgb_postfix)
 
         angle_err = self.get_angle_error(torch.from_numpy(self.bop_dataset.extrinsics[:, :3, :3]))
-        index0, index1 = torch.where(angle_err < angle_threshold)
+        index0, index1 = torch.where(angle_err < max_angle_error)
         filter = torch.where(index0 < index1)
         self.index0, self.index1 = index0[filter], index1[filter]
         # angle_err_filtered = angle_err[row, col]
 
-        assert len(self.index0) == len(self.index1)
+        self.indices = torch.tensor(list(zip(self.index0, self.index1)))
+        if mode == 'val':
+            self.indices = self.indices[torch.randperm(self.indices.size(0))[:1500]]
 
     def get_angle_error(self, R):
         # R: (B, 3, 3)
@@ -314,10 +316,10 @@ class BOPPair(Dataset):
         return angle_err
 
     def __len__(self):
-        return len(self.index0)
+        return len(self.indices)
 
     def __getitem__(self, idx):
-        idx0, idx1 = self.index0[idx], self.index1[idx]
+        idx0, idx1 = self.indices[idx]
         data0, data1 = self.bop_dataset[idx0], self.bop_dataset[idx1]
 
         images = torch.stack([data0['color'], data1['color']], dim=0)
@@ -337,3 +339,8 @@ class BOPPair(Dataset):
             'intrinsics': intrinsics,
             'bboxes': bboxes,
         }
+
+
+def build_linemod(mode, config):
+    config = config.DATASET
+    return Linemod(config.DATA_ROOT, mode, config.OBJECT_ID, config.MIN_VISIBLE_FRACT, config.MAX_ANGLE_ERROR)

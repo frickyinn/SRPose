@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from datasets.matterport3d import Matterport3D
+from datasets.matterport import Matterport3D
 from model import LightPose
 from lightglue import SuperPoint
 from utils import rot_angle_error

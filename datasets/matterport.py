@@ -9,9 +9,9 @@ from utils import rotation_matrix_from_quaternion
 
 
 class Matterport3D(Dataset):
-    def __init__(self, data_root, data_type='train'):
+    def __init__(self, data_root, mode='train'):
         data_root = Path(data_root)
-        json_path = data_root / 'mp3d_planercnn_json' / f'cached_set_{data_type}.json'
+        json_path = data_root / 'mp3d_planercnn_json' / f'cached_set_{mode}.json'
 
         scene_info = {'images': [], 'rotation': [], 'translation': [], 'intrinsics': []}
 
@@ -44,7 +44,7 @@ class Matterport3D(Dataset):
 
         self.scene_info = scene_info
 
-        self.is_training = 'data_type' == 'train'
+        self.is_training = mode == 'train'
 
     def __len__(self):
         return len(self.scene_info['images'])
@@ -80,3 +80,7 @@ class Matterport3D(Dataset):
             'translation': translation,
             'intrinsics': intrinsics,
         }
+
+
+def build_matterport(mode, config):
+    return Matterport3D(config.DATASET.DATA_ROOT, mode)

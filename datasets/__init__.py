@@ -1,12 +1,16 @@
-from .bop import BOPPair
-from .matterport3d import Matterport3D
-from .augmentation import RGBDAugmentor
+from .matterport import build_matterport
+from .linemod import build_linemod
+from .megadepth import build_concat_megadepth
+from .scannet import build_concat_scannet
+from .augment import RGBDAugmentor
 
 dataset_dict = {
     'scene': {
-        'matterport': Matterport3D,
+        'matterport': build_matterport,
+        'megadepth': build_concat_megadepth,
+        'scannet': build_concat_scannet,
     },
     'object': {
-        'bop': BOPPair,
+        'linemod': build_linemod,
     }
 }

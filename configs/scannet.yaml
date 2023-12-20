@@ -1,0 +1,29 @@
+DATASET:
+  DATA_SOURCE: "scannet"
+
+  TRAIN:
+    DATA_ROOT: "data/scannet/train"
+    NPZ_ROOT: "data/scannet/index/scene_data/train"
+    LIST_PATH: "data/scannet/index/scene_data/train_list/scannet_all.txt"
+    INTRINSIC_PATH: "data/scannet/index/intrinsics.npz"
+    MIN_OVERLAP_SCORE: 0.4
+    
+  VAL:
+    DATA_ROOT: "data/scannet/test"
+    NPZ_ROOT: "assets/scannet_test_1500"
+    LIST_PATH: "assets/scannet_test_1500/scannet_test.txt"
+    INTRINSIC_PATH: "assets/scannet_test_1500/intrinsics.npz"
+    MIN_OVERLAP_SCORE: 0.0
+
+  TEST:
+    DATA_ROOT: "data/scannet/test"
+    NPZ_ROOT: "assets/scannet_test_1500"
+    LIST_PATH: "assets/scannet_test_1500/scannet_test.txt"
+    INTRINSIC_PATH: "assets/scannet_test_1500/intrinsics.npz"
+    MIN_OVERLAP_SCORE: 0.0
+
+TRAINER:
+  EPOCHS: 120
+  LEARNING_RATE: 0.0003
+  BATCH_SIZE: 64
+  NUM_WORKERS: 8

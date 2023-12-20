@@ -1,0 +1,9 @@
+DATASET:
+  DATA_SOURCE: 'matterport'
+  DATA_ROOT: '/mnt/ssd/yinrui/mp3d'
+
+TRAINER:
+  EPOCHS: 120
+  LEARNING_RATE: 0.0002
+  BATCH_SIZE: 32
+  NUM_WORKERS: 8
