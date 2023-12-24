@@ -1,6 +1,7 @@
 import argparse
 from torch.utils.data import DataLoader
 import lightning as L
+from lightning.pytorch.callbacks import LearningRateMonitor
 
 from datasets import dataset_dict
 from pl_trainer import PL_LightPose
@@ -35,7 +36,8 @@ def main(args):
         epochs=epochs,
     )
 
-    trainer = L.Trainer(devices=[0, 1], accelerator='gpu', strategy='ddp_find_unused_parameters_true', max_epochs=epochs)
+    lr_monitor = LearningRateMonitor(logging_interval='step')
+    trainer = L.Trainer(devices=[0, 1], accelerator='gpu', strategy='ddp_find_unused_parameters_true', max_epochs=epochs, callbacks=[lr_monitor])
     trainer.fit(pl_lightpose, trainloader, validloader)
 
 

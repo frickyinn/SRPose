@@ -30,11 +30,12 @@ class PL_LightPose(L.LightningModule):
         self.save_hyperparameters()
 
     def _shared_log(self, mode, loss, loss_r, loss_t, loss_t_scale, degrees, meters):
+        degrees = degrees * 180 / torch.pi
         self.log_dict({
             f'{mode}_loss': loss,
-            f'{mode}_degree_avg': degrees.mean() * 180 / torch.pi,
+            f'{mode}_degree_avg': degrees.mean(),
             f'{mode}_meter_avg': meters.mean(),
-        }, on_step=(mode == 'train'), on_epoch=True, prog_bar=True, sync_dist=True)
+        }, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
 
         self.log_dict({
             f'{mode}_loss_r': loss_r,
@@ -44,7 +45,7 @@ class PL_LightPose(L.LightningModule):
             f'{mode}_15d_acc': (degrees <= 15).float().mean(),
             f'{mode}_30d_acc': (degrees <= 30).float().mean(),
             f'{mode}_1m_acc': (meters <= 1).float().mean(),
-        }, on_step=(mode == 'train'), on_epoch=True, sync_dist=True)
+        }, on_step=False, on_epoch=True, sync_dist=True)
 
     def training_step(self, batch, batch_idx):
         images = batch['images']
@@ -166,7 +167,7 @@ class PL_LightPose(L.LightningModule):
         self._shared_on_epoch_end('test')
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(), lr=self.hparams.lr)
+        optimizer = torch.optim.AdamW(self.module.parameters(), lr=self.hparams.lr)
         scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.hparams.lr, steps_per_epoch=self.hparams.steps_per_epoch, epochs=self.hparams.epochs)
 
         return {
