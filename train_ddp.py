@@ -30,39 +30,47 @@ def cleanup():
     dist.destroy_process_group()
 
 
-def train(rank, args, model, trainset, validset):
-    epochs = args.epochs
+def train(rank, args, config, model, trainset, validset):
     world_size = args.world_size
+    master_port = config.TRAINER.MASTER_PORT
+    epochs = config.TRAINER.EPOCHS
+    batch_size = config.TRAINER.BATCH_SIZE
+    num_workers = config.TRAINER.NUM_WORKERS
+    pin_memory = config.TRAINER.PIN_MEMORY
+    lr = config.TRAINER.LEARNING_RATE
+    save_path_ = config.TRAINER.SAVE_PATH
+
+    num_keypoints = config.MODEL.NUM_KEYPOINTS
 
     if world_size > 1:
         print(f"Running DDP on rank {rank}.")
-        setup(rank, args.master_port, world_size)
+        setup(rank, master_port, world_size)
 
         trainsampler = DistributedSampler(trainset)
         validsampler = DistributedSampler(validset, shuffle=False)
-        trainloader = DataLoader(trainset, batch_size=args.batch_size, num_workers=args.num_workers, pin_memory=True, sampler=trainsampler)
-        validloader = DataLoader(validset, batch_size=args.batch_size, num_workers=args.num_workers, pin_memory=True, sampler=validsampler)
+        trainloader = DataLoader(trainset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory, sampler=trainsampler)
+        validloader = DataLoader(validset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory, sampler=validsampler)
 
         model = model.to(rank)
         model = DDP(model, device_ids=[rank])
 
     else:
-        trainloader = DataLoader(trainset, batch_size=args.batch_size, num_workers=args.num_workers, pin_memory=True, shuffle=True)
-        validloader = DataLoader(validset, batch_size=args.batch_size, num_workers=args.num_workers, pin_memory=True)
+        trainloader = DataLoader(trainset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory, shuffle=True)
+        validloader = DataLoader(validset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory)
         
         model = model.to(rank)
 
     augment = RGBDAugmentor()
-    extractor = SuperPoint(max_num_keypoints=args.num_keypoints, detection_threshold=0.0).eval().to(rank)  # load the extractor
-    optimizer = torch.optim.AdamW(list(model.parameters()), lr=args.lr)
-    scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, steps_per_epoch=len(trainloader), epochs=epochs)
+    extractor = SuperPoint(max_num_keypoints=num_keypoints, detection_threshold=0.0).eval().to(rank)  # load the extractor
+    optimizer = torch.optim.AdamW(list(model.parameters()), lr=lr)
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=lr, steps_per_epoch=len(trainloader), epochs=epochs)
     # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=6*len(trainloader), gamma=0.9)
     # rotation_criterion = rot_angle_error
     criterion = torch.nn.HuberLoss()
 
     run_id = datetime.now().strftime("%Y%m%d_%H%M")
-    save_path = os.path.join(args.save_path, f'{args.task}_{args.dataset}_{run_id}')
-    os.makedirs(args.save_path, exist_ok=True)
+    save_path = os.path.join(save_path_, f'{args.task}_{args.dataset}_{run_id}')
+    os.makedirs(save_path_, exist_ok=True)
     os.makedirs(save_path, exist_ok=True)
 
     if world_size == 1 or rank == 0:
@@ -91,7 +99,7 @@ def train(rank, args, model, trainset, validset):
 
     min_derr = 180
     for e in range(start_epoch, epochs):
-        with tqdm(desc=f'Train Epoch {e+1}', total=len(trainloader), disabled=(rank != 0)) as t:
+        with tqdm(desc=f'Train Epoch {e+1}', total=len(trainloader), disable=(world_size > 1 and rank != 0)) as t:
             train_loss_r = 0
             train_loss_t = 0
             train_batch = 0
@@ -117,6 +125,11 @@ def train(rank, args, model, trainset, validset):
                     feats0 = extractor({'image': image0.to(rank)})
                     feats1 = extractor({'image': image1.to(rank)})
                 
+                if 'scales' in batch:
+                    scales = batch['scales'].to(rank)
+                    feats0['keypoints'] *= scales[:, 0].unsqueeze(1)
+                    feats1['keypoints'] *= scales[:, 1].unsqueeze(1)
+
                 if args.task == 'scene':
                     pred_r, pred_t = model({'image0': {**feats0, 'intrinsics': intrinsics[:, 0]}, 'image1': {**feats1, 'intrinsics': intrinsics[:, 1]}})
                 elif args.task == 'object':
@@ -164,7 +177,7 @@ def train(rank, args, model, trainset, validset):
                 train_writer.add_scalar('Meter Error Avg.', tm.mean(), e+1)
                 train_writer.add_scalar('Learning Rate', scheduler.get_last_lr()[-1], e+1)
 
-        with tqdm(desc=f'Valid Epoch {e+1}', total=len(validloader), disabled=(rank != 0)) as t:
+        with tqdm(desc=f'Valid Epoch {e+1}', total=len(validloader), disable=(world_size > 1 and rank != 0)) as t:
             valid_loss_r = 0
             valid_loss_t = 0
             valid_batch = 0
@@ -184,6 +197,11 @@ def train(rank, args, model, trainset, validset):
 
                     feats0 = extractor({'image': image0.to(rank)})
                     feats1 = extractor({'image': image1.to(rank)})
+
+                    if 'scales' in batch:
+                        scales = batch['scales'].to(rank)
+                        feats0['keypoints'] *= scales[:, 0].unsqueeze(1)
+                        feats1['keypoints'] *= scales[:, 1].unsqueeze(1)
 
                     # image_size = images.shape[-2:][::-1]
                     if args.task == 'scene':
@@ -258,7 +276,7 @@ def train(rank, args, model, trainset, validset):
 
 def main(args):
     config = get_cfg_defaults()
-    config.merge_from_file(args.config_path)
+    config.merge_from_file(args.config)
 
     seed_torch(config.RANDOM_SEED)
 
@@ -268,24 +286,28 @@ def main(args):
     trainset = build_fn('train', config)
     validset = build_fn('val', config)
 
-    if args.world_size > 1:
+    world_size = args.world_size
+    if world_size > 1:
         mp.spawn(
             train,
-            args=(args, model, trainset, validset),
-            nprocs=args.world_size,
+            args=(args, config, model, trainset, validset),
+            nprocs=world_size,
             join=True,
         )
     else:
-        train(args.device, args, model, trainset, validset)
+        train(args.device, args, config, model, trainset, validset)
 
 
 def get_parser():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--task', type=str, help='scene | object')
-    parser.add_argument('--dataset', type=str, help='matterport | bop')
-    parser.add_argument('--config_path', type=str, help='.yaml configure file')
+    parser.add_argument('--dataset', type=str, help='matterport | megadepth | scannet | bop')
+    parser.add_argument('--config', type=str, help='.yaml configure file path')
     parser.add_argument('--resume', type=str, default=None)
+
+    parser.add_argument('--world_size', type=int, default=2)
+    parser.add_argument('--device', type=str, default='cuda:0')
 
     return parser
 

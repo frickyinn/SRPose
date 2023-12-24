@@ -85,11 +85,15 @@ class ScanNetDataset(Dataset):
         # image1 = read_scannet_gray(img_name1, resize=(640, 480), augment_fn=None)
         #                         #    augment_fn=np.random.choice([self.augment_fn, None], p=[0.5, 0.5]))
 
+        w_new, h_new = 640, 480
+
         image0 = cv2.imread(img_name0)
+        image0 = cv2.resize(image0, (w_new, h_new))
         image0 = cv2.cvtColor(image0, cv2.COLOR_BGR2RGB)
         image0 = torch.from_numpy(image0).permute(2, 0, 1).float() / 255.
 
         image1 = cv2.imread(img_name1)
+        image1 = cv2.resize(image1, (w_new, h_new))
         image1 = cv2.cvtColor(image1, cv2.COLOR_BGR2RGB)
         image1 = torch.from_numpy(image1).permute(2, 0, 1).float() / 255.
 
@@ -139,11 +143,11 @@ class ScanNetDataset(Dataset):
 
 def build_concat_scannet(mode, config):
     if mode == 'train':
-        config = config.DATASET.MEGADEPTH.TRAIN
+        config = config.DATASET.TRAIN
     elif mode == 'val':
-        config = config.DATASET.MEGADEPTH.VAL
+        config = config.DATASET.VAL
     elif mode == 'test':
-        config == config.DATASET.MEGADEPTH.TEST
+        config = config.DATASET.TEST
     else:
         raise NotImplementedError(f'mode {mode}')
 
@@ -158,7 +162,7 @@ def build_concat_scannet(mode, config):
         npz_names = [name.split()[0] for name in f.readlines()]
 
     datasets = []
-    npz_names = [f'{n}.npz' for n in npz_names]
+    # npz_names = [f'{n}.npz' for n in npz_names]
     for npz_name in tqdm(npz_names, desc=f'Loading ScanNet {mode} datasets',):
         npz_path = osp.join(npz_root, npz_name)
         datasets.append(ScanNetDataset(

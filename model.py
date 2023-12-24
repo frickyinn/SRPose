@@ -407,6 +407,8 @@ class LightPose(nn.Module):
             desc0 = gather(desc0, ind0)
             kpts0 = gather(kpts0, ind0)
 
+        # return matchability, kpts0, kpts1
+
         desc0 = self.input_proj(desc0)
         desc1 = self.input_proj(desc1)
         # cache positional embeddings

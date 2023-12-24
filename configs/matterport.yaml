@@ -1,6 +1,6 @@
 DATASET:
   DATA_SOURCE: 'matterport'
-  DATA_ROOT: '/mnt/ssd/yinrui/mp3d'
+  DATA_ROOT: 'data/mp3d'
 
 TRAINER:
   EPOCHS: 120

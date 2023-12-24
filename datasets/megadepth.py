@@ -1,3 +1,4 @@
+import os
 import os.path as osp
 import numpy as np
 import cv2
@@ -81,14 +82,21 @@ class MegaDepthDataset(Dataset):
         #     img_name1, self.img_resize, self.df, self.img_padding, None)
         #     # np.random.choice([self.augment_fn, None], p=[0.5, 0.5]))
         
+        w_new, h_new = 640, 480
+
         image0 = cv2.imread(img_name0)
+        scale0 = torch.tensor([image0.shape[1]/w_new, image0.shape[0]/h_new], dtype=torch.float)
+        image0 = cv2.resize(image0, (w_new, h_new))
         image0 = cv2.cvtColor(image0, cv2.COLOR_BGR2RGB)
         image0 = torch.from_numpy(image0).permute(2, 0, 1).float() / 255.
 
         image1 = cv2.imread(img_name1)
+        scale1 = torch.tensor([image1.shape[1]/w_new, image1.shape[0]/h_new], dtype=torch.float)
+        image1 = cv2.resize(image1, (w_new, h_new))
         image1 = cv2.cvtColor(image1, cv2.COLOR_BGR2RGB)
         image1 = torch.from_numpy(image1).permute(2, 0, 1).float() / 255.
 
+        scales = torch.stack([scale0, scale1], dim=0)
         images = torch.stack([image0, image1], dim=0)
 
         # # read depth. shape: (h, w)
@@ -138,22 +146,48 @@ class MegaDepthDataset(Dataset):
         #     data.update({'mask0': ts_mask_0, 'mask1': ts_mask_1})
 
         data = {
+            # 'image0': image0,
+            # 'image1': image1,
             'images': images,
+            'scales': scales,  # (2, 2): [scale_w, scale_h]
             'rotation': T_0to1[:3, :3],
             'translation': T_0to1[:3, 3],
-            'intrinsics': intrinsics
+            'intrinsics': intrinsics,
+
+            # 'scene_id': self.scene_id,
+            # 'pair_id': idx,
+            # 'pair_names': (self.scene_info['image_paths'][idx0], self.scene_info['image_paths'][idx1]),
         }
 
         return data
 
 
+# def extract_keypoints(mode, output_path, extractor, dataset, device='cuda:0'):
+#     for data in tqdm(dataset, desc=f'Extracting {mode} dataset keypoints'):
+#         image0, image1 = data['image0'][None,], data['image1'][None,]
+
+#         with torch.no_grad():
+#             feats0 = extractor({'image': image0.to(device)})
+#             feats1 = extractor({'image': image1.to(device)})
+
+#         data['keypoints'] = torch.cat([feats0['keypoints'], feats1['keypoints']], dim=0)
+#         data['descriptors'] = torch.cat([feats0['descriptors'], feats1['descriptors']], dim=0)
+#         data['image_size'] = torch.stack([torch.tensor(image0.shape[-2:]), torch.tensor(image1.shape[-2:])])
+#         data.pop('image0')
+#         data.pop('image1')
+
+#         scene_path = osp.join(output_path, mode, data['scene_id'].split('/')[-1])
+#         os.makedirs(scene_path, exist_ok=True)
+#         torch.save(data, osp.join(scene_path, f"{data['pair_id']}.pth"))
+
+
 def build_concat_megadepth(mode, config):
     if mode == 'train':
-        config = config.DATASET.MEGADEPTH.TRAIN
+        config = config.DATASET.TRAIN
     elif mode == 'val':
-        config = config.DATASET.MEGADEPTH.VAL
+        config = config.DATASET.VAL
     elif mode == 'test':
-        config == config.DATASET.MEGADEPTH.TEST
+        config = config.DATASET.TEST
     else:
         raise NotImplementedError(f'mode {mode}')
 

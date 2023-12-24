@@ -330,7 +330,7 @@ class Linemod(Dataset):
         rel_t = rel_ex[:3, 3]
 
         intrinsics = torch.stack([data0['intrinsic'], data1['intrinsic']], dim=0)
-        bboxes = torch.stack([data0['bbox_obj'], data1['bbox_obj']])
+        bboxes = torch.stack([data0['bbox_visib'], data1['bbox_visib']])
 
         return {
             'images': images,
