@@ -9,6 +9,8 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torch.nn import functional as F
 
+from utils import Augmentor
+
 
 LINEMOD_ID_TO_NAME = {
     '000001': 'ape',
@@ -121,6 +123,8 @@ class BOPDataset(Dataset):
 
         self.extrinsics = np.array(self.extrinsics)[visib_filter]
         self.intrinsics = np.array(self.intrinsics)[visib_filter]
+
+        self.augment = Augmentor()
 
         assert len(self.depth_paths) == len(self.mask_paths)
         assert len(self.depth_paths) == len(self.color_paths)
@@ -243,6 +247,7 @@ class BOPDataset(Dataset):
 
     def __getitem__(self, idx):
         color = self._load_color(self.color_paths[idx])
+        color = self.augment(color)
         color = (torch.tensor(color).float() / 255.0).permute(2, 0, 1)
         mask = self._load_mask(self.mask_paths[idx])
         mask = torch.tensor(mask).bool()

@@ -168,7 +168,7 @@ class PL_LightPose(L.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.module.parameters(), lr=self.hparams.lr)
-        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.hparams.lr, steps_per_epoch=self.hparams.steps_per_epoch, epochs=self.hparams.epochs)
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.hparams.lr, steps_per_epoch=1, epochs=self.hparams.epochs)
 
         return {
             'optimizer': optimizer,

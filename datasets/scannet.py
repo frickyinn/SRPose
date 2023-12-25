@@ -7,6 +7,8 @@ from tqdm import tqdm
 import torch
 from torch.utils.data import Dataset, ConcatDataset
 
+from utils import Augmentor
+
 
 def read_scannet_pose(path):
     """ Read ScanNet's Camera2World pose and transform it to World2Camera.
@@ -55,6 +57,7 @@ class ScanNetDataset(Dataset):
 
         # # for training LoFTR
         # self.augment_fn = augment_fn if mode == 'train' else None
+        self.augment = Augmentor()
 
     def __len__(self):
         return len(self.data_names)
@@ -90,11 +93,13 @@ class ScanNetDataset(Dataset):
         image0 = cv2.imread(img_name0)
         image0 = cv2.resize(image0, (w_new, h_new))
         image0 = cv2.cvtColor(image0, cv2.COLOR_BGR2RGB)
+        # image0 = self.augment(image0)
         image0 = torch.from_numpy(image0).permute(2, 0, 1).float() / 255.
 
         image1 = cv2.imread(img_name1)
         image1 = cv2.resize(image1, (w_new, h_new))
         image1 = cv2.cvtColor(image1, cv2.COLOR_BGR2RGB)
+        # image1 = self.augment(image1)
         image1 = torch.from_numpy(image1).permute(2, 0, 1).float() / 255.
 
         images = torch.stack([image0, image1], dim=0)

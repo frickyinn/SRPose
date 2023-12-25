@@ -5,7 +5,7 @@ import json
 import torch
 from torch.utils.data import Dataset
 
-from utils import rotation_matrix_from_quaternion
+from utils import rotation_matrix_from_quaternion, Augmentor
 
 
 class Matterport3D(Dataset):
@@ -43,6 +43,7 @@ class Matterport3D(Dataset):
         scene_info['intrinsics'] = torch.tensor(scene_info['intrinsics'])
 
         self.scene_info = scene_info
+        self.augment = Augmentor()
 
         self.is_training = mode == 'train'
 
@@ -59,7 +60,9 @@ class Matterport3D(Dataset):
         for i in range(2):
             image = cv2.imread(str(img_names[i]))
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            images.append(torch.from_numpy(image).permute(2, 0, 1))
+            image = self.augment(image)
+            image = torch.from_numpy(image).permute(2, 0, 1)
+            images.append(image)
         images = torch.stack(images)
         images = images.float() / 255.
 

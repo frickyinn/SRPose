@@ -5,6 +5,7 @@ import torch
 
 from .error import quat_degree_error, rot_degree_error
 from .transform import rotation_matrix_from_ortho6d, rotation_matrix_from_quaternion
+from .augment import Augmentor
 
 
 def seed_torch(seed):

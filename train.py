@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor
 
-from datasets import dataset_dict
+from datasets import dataset_dict, RandomConcatSampler
 from pl_trainer import PL_LightPose
 from utils import seed_torch
 from configs.default import get_cfg_defaults
@@ -13,19 +13,32 @@ def main(args):
     config = get_cfg_defaults()
     config.merge_from_file(args.config)
 
-    seed_torch(config.RANDOM_SEED)
     batch_size = config.TRAINER.BATCH_SIZE
     num_workers = config.TRAINER.NUM_WORKERS
     pin_memory = config.TRAINER.PIN_MEMORY
+    n_samples_per_subset = config.TRAINER.N_SAMPLES_PER_SUBSET
     lr = config.TRAINER.LEARNING_RATE
     epochs = config.TRAINER.EPOCHS
     num_keypoints = config.MODEL.NUM_KEYPOINTS
+    seed = config.RANDOM_SEED
+    seed_torch(seed)
         
     build_fn = dataset_dict[args.task][args.dataset]
     trainset = build_fn('train', config)
     validset = build_fn('val', config)
 
-    trainloader = DataLoader(trainset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory, shuffle=True)
+    if args.dataset == 'scannet' or args.dataset == 'megadepth':
+        sampler = RandomConcatSampler(
+            trainset,
+            n_samples_per_subset=n_samples_per_subset,
+            subset_replacement=True,
+            shuffle=True, 
+            seed=seed
+        )
+        trainloader = DataLoader(trainset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory, sampler=sampler)
+    else:
+        trainloader = DataLoader(trainset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory, shuffle=True)
+
     validloader = DataLoader(validset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory)
 
     pl_lightpose = PL_LightPose(
@@ -36,8 +49,14 @@ def main(args):
         epochs=epochs,
     )
 
-    lr_monitor = LearningRateMonitor(logging_interval='step')
-    trainer = L.Trainer(devices=[0, 1], accelerator='gpu', strategy='ddp_find_unused_parameters_true', max_epochs=epochs, callbacks=[lr_monitor])
+    lr_monitor = LearningRateMonitor(logging_interval='epoch')
+    trainer = L.Trainer(
+        devices=[0, 1], accelerator='gpu', strategy='ddp_find_unused_parameters_true', 
+        max_epochs=epochs, 
+        callbacks=[lr_monitor],
+        precision="bf16-mixed",
+    )
+    
     trainer.fit(pl_lightpose, trainloader, validloader)
 
 

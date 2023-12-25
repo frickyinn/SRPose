@@ -6,3 +6,4 @@
 *.ipynb
 /data
 preprocess_megadepth.py
+*.ckpt

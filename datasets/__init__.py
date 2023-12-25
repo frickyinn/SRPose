@@ -2,7 +2,7 @@ from .matterport import build_matterport
 from .linemod import build_linemod
 from .megadepth import build_concat_megadepth
 from .scannet import build_concat_scannet
-from .augment import RGBDAugmentor
+from .sampler import RandomConcatSampler
 
 dataset_dict = {
     'scene': {

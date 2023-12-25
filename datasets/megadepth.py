@@ -6,6 +6,8 @@ from tqdm import tqdm
 import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset, ConcatDataset
+
+from utils import Augmentor
 # from loguru import logger
 
 # from src.utils.dataset import read_megadepth_gray, read_megadepth_depth
@@ -53,6 +55,8 @@ class MegaDepthDataset(Dataset):
         del self.scene_info['pair_infos']
         self.pair_infos = [pair_info for pair_info in self.pair_infos if pair_info[1] > min_overlap_score]
 
+        self.augment = Augmentor()
+
         # # parameters for image resizing, padding and depthmap padding
         # if mode == 'train':
         #     assert img_resize is not None and img_padding and depth_padding
@@ -88,12 +92,14 @@ class MegaDepthDataset(Dataset):
         scale0 = torch.tensor([image0.shape[1]/w_new, image0.shape[0]/h_new], dtype=torch.float)
         image0 = cv2.resize(image0, (w_new, h_new))
         image0 = cv2.cvtColor(image0, cv2.COLOR_BGR2RGB)
+        # image0 = self.augment(image0)
         image0 = torch.from_numpy(image0).permute(2, 0, 1).float() / 255.
 
         image1 = cv2.imread(img_name1)
         scale1 = torch.tensor([image1.shape[1]/w_new, image1.shape[0]/h_new], dtype=torch.float)
         image1 = cv2.resize(image1, (w_new, h_new))
         image1 = cv2.cvtColor(image1, cv2.COLOR_BGR2RGB)
+        # image1 = self.augment(image1)
         image1 = torch.from_numpy(image1).permute(2, 0, 1).float() / 255.
 
         scales = torch.stack([scale0, scale1], dim=0)

@@ -42,7 +42,7 @@ def normalize_keypoints(kpts, intrinsics):
     return kpts
 
 
-@torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
+# @torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
 def cosine_similarity(x, y):
     sim = torch.einsum('...id,...jd->...ij', x / x.norm(2, -1, keepdim=True), y / y.norm(2, -1, keepdim=True))
     sim = (sim + 1) / 2
