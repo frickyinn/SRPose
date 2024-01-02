@@ -12,7 +12,7 @@ import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from lightglue import SuperPoint
-from datasets import RGBDAugmentor, dataset_dict
+from datasets import Augmentor, dataset_dict
 from model import LightPose
 from utils import seed_torch, rot_degree_error
 from configs.default import get_cfg_defaults

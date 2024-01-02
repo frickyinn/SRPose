@@ -10,8 +10,17 @@ from torch import nn
 
 from utils import rotation_matrix_from_ortho6d
 
+try:
+    from flash_attn.modules.mha import FlashCrossAttention
+except ModuleNotFoundError:
+    FlashCrossAttention = None
+
+if FlashCrossAttention or hasattr(F, "scaled_dot_product_attention"):
+    FLASH_AVAILABLE = True
+else:
+    FLASH_AVAILABLE = False
+
 torch.backends.cudnn.deterministic = True
-torch.set_float32_matmul_precision('high')
 
 
 # @torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
@@ -68,6 +77,47 @@ def gather(x: torch.Tensor, indices: torch.tensor):
     return x[bs, indices.unsqueeze(-1), ns]
 
 
+class Attention(nn.Module):
+    def __init__(self, allow_flash: bool = True) -> None:
+        super().__init__()
+        if allow_flash and not FLASH_AVAILABLE:
+            warnings.warn(
+                "FlashAttention is not available. For optimal speed, "
+                "consider installing torch >= 2.0 or flash-attn.",
+                stacklevel=2,
+            )
+        self.enable_flash = allow_flash and FLASH_AVAILABLE
+        self.has_sdp = hasattr(F, "scaled_dot_product_attention")
+        if allow_flash and FlashCrossAttention:
+            self.flash_ = FlashCrossAttention()
+        if self.has_sdp:
+            torch.backends.cuda.enable_flash_sdp(allow_flash)
+
+    def forward(self, q, k, v, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+        if self.enable_flash and q.device.type == "cuda":
+            # use torch 2.0 scaled_dot_product_attention with flash
+            if self.has_sdp:
+                args = [x.half().contiguous() for x in [q, k, v]]
+                v = F.scaled_dot_product_attention(*args, attn_mask=mask).to(q.dtype)
+                return v if mask is None else v.nan_to_num()
+            else:
+                assert mask is None
+                q, k, v = [x.transpose(-2, -3).contiguous() for x in [q, k, v]]
+                m = self.flash_(q.half(), torch.stack([k, v], 2).half())
+                return m.transpose(-2, -3).to(q.dtype).clone()
+        elif self.has_sdp:
+            args = [x.contiguous() for x in [q, k, v]]
+            v = F.scaled_dot_product_attention(*args, attn_mask=mask)
+            return v if mask is None else v.nan_to_num()
+        else:
+            s = q.shape[-1] ** -0.5
+            sim = torch.einsum("...id,...jd->...ij", q, k) * s
+            if mask is not None:
+                sim.masked_fill(~mask, -float("inf"))
+            attn = F.softmax(sim, -1)
+            return torch.einsum("...ij,...jd->...id", attn, v)
+
+
 class SelfBlock(nn.Module):
     def __init__(
         self, embed_dim: int, num_heads: int, bias: bool = True
@@ -78,6 +128,7 @@ class SelfBlock(nn.Module):
         assert self.embed_dim % num_heads == 0
         self.head_dim = self.embed_dim // num_heads
         self.Wqkv = nn.Linear(embed_dim, 3 * embed_dim, bias=bias)
+        self.inner_attn = Attention()
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
         self.ffn = nn.Sequential(
             nn.Linear(2 * embed_dim, 2 * embed_dim),
@@ -98,12 +149,13 @@ class SelfBlock(nn.Module):
         q += encoding
         k += encoding
 
-        s = q.shape[-1] ** -0.5
-        sim = torch.einsum("...id,...jd->...ij", q, k) * s
-        if mask is not None:
-            sim.masked_fill(~mask.unsqueeze(1), -float("inf"))
-        attn = F.softmax(sim, -1)
-        context = torch.einsum("...ij,...jd->...id", attn, v)
+        # s = q.shape[-1] ** -0.5
+        # sim = torch.einsum("...id,...jd->...ij", q, k) * s
+        # if mask is not None:
+        #     sim.masked_fill(~mask.unsqueeze(1), -float("inf"))
+        # attn = F.softmax(sim, -1)
+        # context = torch.einsum("...ij,...jd->...id", attn, v)
+        context = self.inner_attn(q, k, v, mask=mask)
 
         message = self.out_proj(context.transpose(1, 2).flatten(start_dim=-2))
         return x + self.ffn(torch.cat([x, message], -1))
@@ -213,14 +265,14 @@ class LightPose(nn.Module):
         "weights": None,
     }
 
-    # Point pruning involves an overhead (gather).
-    # Therefore, we only activate it if there are enough keypoints.
-    pruning_keypoint_thresholds = {
-        "cpu": -1,
-        "mps": -1,
-        "cuda": 1024,
-        "flash": 1536,
-    }
+    # # Point pruning involves an overhead (gather).
+    # # Therefore, we only activate it if there are enough keypoints.
+    # pruning_keypoint_thresholds = {
+    #     "cpu": -1,
+    #     "mps": -1,
+    #     "cuda": 1024,
+    #     "flash": 1536,
+    # }
 
     required_data_keys = ["image0", "image1"]
 

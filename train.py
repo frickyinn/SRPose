@@ -19,7 +19,11 @@ def main(args):
     n_samples_per_subset = config.TRAINER.N_SAMPLES_PER_SUBSET
     lr = config.TRAINER.LEARNING_RATE
     epochs = config.TRAINER.EPOCHS
+
     num_keypoints = config.MODEL.NUM_KEYPOINTS
+    n_layers = config.MODEL.N_LAYERS
+    num_heads = config.MODEL.NUM_HEADS
+
     seed = config.RANDOM_SEED
     seed_torch(seed)
         
@@ -44,9 +48,10 @@ def main(args):
     pl_lightpose = PL_LightPose(
         task=args.task,
         lr=lr,
-        num_keypoints=num_keypoints,
-        steps_per_epoch=len(trainloader),
         epochs=epochs,
+        n_layers=n_layers,
+        num_heads=num_heads,
+        num_keypoints=num_keypoints,
     )
 
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
@@ -57,7 +62,7 @@ def main(args):
         precision="bf16-mixed",
     )
     
-    trainer.fit(pl_lightpose, trainloader, validloader)
+    trainer.fit(pl_lightpose, trainloader, validloader, ckpt_path=args.resume)
 
 
 def get_parser():

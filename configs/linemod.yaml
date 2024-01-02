@@ -2,7 +2,7 @@ DATASET:
   DATA_SOURCE: 'linemod'
   DATA_ROOT: 'data/lm'
 
-  OBJECT_ID: 8
+  OBJECT_ID: 4
   MIN_VISIBLE_FRACT: 0.5
   MAX_ANGLE_ERROR: 30
 
