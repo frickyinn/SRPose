@@ -13,6 +13,7 @@ class PL_LightPose(L.LightningModule):
             task,
             lr,
             epochs,
+            pct_start,
             num_keypoints,
             n_layers=3,
             num_heads=4,
@@ -23,6 +24,10 @@ class PL_LightPose(L.LightningModule):
         self.extractor = SuperPoint(max_num_keypoints=num_keypoints, detection_threshold=0.0).eval()
         self.module = LightPose(features=features, task=task, n_layers=n_layers, num_heads=num_heads)
         self.criterion = torch.nn.HuberLoss()
+
+        self.s_r = torch.nn.Parameter(torch.zeros(1))
+        self.s_t = torch.nn.Parameter(torch.zeros(1))
+
         self.degree_errors = {k:[] for k in ['train', 'valid', 'test']}
         self.meter_errors = {k:[] for k in ['train', 'valid', 'test']}
 
@@ -76,7 +81,7 @@ class PL_LightPose(L.LightningModule):
         loss_t = self.criterion(pred_t, translation)
         loss_t_scale = self.criterion(pred_t / pred_t.norm(2, dim=1, keepdim=True), translation / translation.norm(2, dim=1, keepdim=True))
 
-        loss = loss_r + loss_t + loss_t_scale
+        loss = loss_r * torch.exp(-self.s_r) + (loss_t + loss_t_scale) * torch.exp(-self.s_t) + self.s_r + self.s_t
 
         degrees = err_r.detach()
         meters = (pred_t.detach() - translation).norm(2, dim=1)
@@ -85,6 +90,8 @@ class PL_LightPose(L.LightningModule):
         self.meter_errors['train'].append(meters)
 
         self._shared_log('train', loss, loss_r, loss_t, loss_t_scale, degrees, meters)
+        self.log('s_r', self.s_r)
+        self.log('s_t', self.s_t)
 
         return loss
     
@@ -118,7 +125,7 @@ class PL_LightPose(L.LightningModule):
         loss_t = self.criterion(pred_t, translation)
         loss_t_scale = self.criterion(pred_t / pred_t.norm(2, dim=1, keepdim=True), translation / translation.norm(2, dim=1, keepdim=True))
 
-        loss = loss_r + loss_t + loss_t_scale
+        loss = loss_r * torch.exp(-self.s_r) + (loss_t + loss_t_scale) * torch.exp(-self.s_t) + self.s_r + self.s_t
 
         degrees = err_r.detach()
         meters = (pred_t.detach() - translation).norm(2, dim=1)
@@ -167,7 +174,7 @@ class PL_LightPose(L.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.module.parameters(), lr=self.hparams.lr)
-        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.hparams.lr, steps_per_epoch=1, epochs=self.hparams.epochs)
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.hparams.lr, steps_per_epoch=1, epochs=self.hparams.epochs, pct_start=self.hparams.pct_start)
 
         return {
             'optimizer': optimizer,

@@ -21,6 +21,7 @@ else:
     FLASH_AVAILABLE = False
 
 torch.backends.cudnn.deterministic = True
+torch.set_float32_matmul_precision('medium')
 
 
 # @torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
@@ -37,7 +38,7 @@ torch.backends.cudnn.deterministic = True
 #     kpts = (kpts - shift[..., None, :]) / scale[..., None, None]
 #     return kpts
 
-@torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
+# @torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
 def normalize_keypoints(kpts, intrinsics):
     # kpts: (B, M, 2)
     # intrinsics: (B, 3, 3)
@@ -97,13 +98,13 @@ class Attention(nn.Module):
         if self.enable_flash and q.device.type == "cuda":
             # use torch 2.0 scaled_dot_product_attention with flash
             if self.has_sdp:
-                args = [x.half().contiguous() for x in [q, k, v]]
+                args = [x.contiguous() for x in [q, k, v]]
                 v = F.scaled_dot_product_attention(*args, attn_mask=mask).to(q.dtype)
                 return v if mask is None else v.nan_to_num()
             else:
                 assert mask is None
                 q, k, v = [x.transpose(-2, -3).contiguous() for x in [q, k, v]]
-                m = self.flash_(q.half(), torch.stack([k, v], 2).half())
+                m = self.flash_(q, torch.stack([k, v], 2))
                 return m.transpose(-2, -3).to(q.dtype).clone()
         elif self.has_sdp:
             args = [x.contiguous() for x in [q, k, v]]
@@ -418,9 +419,9 @@ class LightPose(nn.Module):
         assert desc0.shape[-1] == self.conf.input_dim
         assert desc1.shape[-1] == self.conf.input_dim
 
-        if torch.is_autocast_enabled():
-            desc0 = desc0.half()
-            desc1 = desc1.half()
+        # if torch.is_autocast_enabled():
+        #     desc0 = desc0.half()
+        #     desc1 = desc1.half()
 
         mask0, mask1 = None, None
         c = max(m, n)

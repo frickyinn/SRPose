@@ -19,6 +19,7 @@ def main(args):
     n_samples_per_subset = config.TRAINER.N_SAMPLES_PER_SUBSET
     lr = config.TRAINER.LEARNING_RATE
     epochs = config.TRAINER.EPOCHS
+    pct_start = config.TRAINER.PCT_START
 
     num_keypoints = config.MODEL.NUM_KEYPOINTS
     n_layers = config.MODEL.N_LAYERS
@@ -49,6 +50,7 @@ def main(args):
         task=args.task,
         lr=lr,
         epochs=epochs,
+        pct_start=pct_start,
         n_layers=n_layers,
         num_heads=num_heads,
         num_keypoints=num_keypoints,
