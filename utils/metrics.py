@@ -83,7 +83,6 @@ def estimate_pose(kpts0, kpts1, K0, K1, thresh, conf=0.99999):
             ret = (R, t[:, 0], mask.ravel() > 0)
             best_num_inliers = n
 
-    print(np.linalg.norm(t))
     return ret
 
 
@@ -109,8 +108,8 @@ def compute_pose_errors(pts0, pts1, K0, K1, T_0to1, pixel_thr=0.5, conf=0.99999)
     ret = estimate_pose(pts0, pts1, K0, K1, pixel_thr, conf=conf)
 
     if ret is None:
-        R_err = np.inf
-        t_err = np.inf
+        R_err = 180
+        t_err = 180
         inliers = np.array([]).astype(bool)
     else:
         R, t, inliers = ret

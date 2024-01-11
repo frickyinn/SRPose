@@ -83,12 +83,19 @@ def main(args):
     for k in aucs:
         print(f'{k}:\t{aucs[k]:.4f}')
     
+    R_errs = torch.tensor(R_errs)
+    t_errs = torch.tensor(t_errs)
+    print(f'rotation_err_avg:\t{R_errs.mean():.2f}')
+    print(f'rotation_err_med:\t{R_errs.median():.2f}')
+    print(f'translation_err_avg:\t{t_errs.mean():.2f}')
+    print(f'translation_err_med:\t{t_errs.median():.2f}')
+    
     R_gts = torch.tensor(R_gts).rad2deg()
     t_gts = torch.tensor(t_gts)
-    print(f'rot_err_avg:\t{R_gts.mean():.2f}')
-    print(f'rot_err_med:\t{R_gts.median():.2f}')
-    print(f'trans_err_avg:\t{t_gts.mean():.2f}')
-    print(f'trans_err_med:\t{t_gts.median():.2f}')
+    print(f'rel_rotation_avg:\t{R_gts.mean():.2f}')
+    print(f'rel_rotation_med:\t{R_gts.median():.2f}')
+    print(f'rel_translation_avg:\t{t_gts.mean():.2f}')
+    print(f'rel_translation_med:\t{t_gts.median():.2f}')
 
 def get_parser():
     parser = argparse.ArgumentParser()

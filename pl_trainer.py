@@ -125,6 +125,8 @@ class PL_LightPose(L.LightningModule):
             **auc,
             f'{mode}_r_avg': r_errors.mean(),
             f'{mode}_r_med': r_errors.median(),
+            f'{mode}_ta_avg': ta_errors.mean(),
+            f'{mode}_ta_med': ta_errors.median(),
             f'{mode}_t_avg': t_errors.mean(),
             f'{mode}_t_med': t_errors.median(),
         }, sync_dist=True)
