@@ -1,7 +1,7 @@
 import argparse
 from torch.utils.data import DataLoader
 import lightning as L
-from lightning.pytorch.callbacks import LearningRateMonitor
+from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 
 from datasets import dataset_dict, RandomConcatSampler
 from pl_trainer import PL_LightPose
@@ -57,10 +57,11 @@ def main(args):
     )
 
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
+    checkpoint_callback = ModelCheckpoint(monitor='valid_degree_auc@5', mode='max')
     trainer = L.Trainer(
-        devices=[0, 1], accelerator='gpu', strategy='ddp_find_unused_parameters_true', 
+        devices=[0, 1, 2, 3], accelerator='gpu', strategy='ddp_find_unused_parameters_true', 
         max_epochs=epochs, 
-        callbacks=[lr_monitor],
+        callbacks=[lr_monitor, checkpoint_callback],
         precision="bf16-mixed",
     )
     

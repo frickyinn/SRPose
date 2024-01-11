@@ -15,8 +15,8 @@ class PL_LightPose(L.LightningModule):
             epochs,
             pct_start,
             num_keypoints,
-            n_layers=3,
-            num_heads=4,
+            n_layers,
+            num_heads,
             features='superpoint',
         ):
         super().__init__()
