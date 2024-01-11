@@ -26,6 +26,7 @@ class PL_LightPose(L.LightningModule):
         self.criterion = torch.nn.HuberLoss()
 
         self.s_r = torch.nn.Parameter(torch.zeros(1))
+        self.s_ta = torch.nn.Parameter(torch. zeros(1))
         self.s_t = torch.nn.Parameter(torch.zeros(1))
 
         self.r_errors = {k:[] for k in ['train', 'valid', 'test']}
@@ -34,44 +35,44 @@ class PL_LightPose(L.LightningModule):
 
         self.save_hyperparameters()
 
-    def _shared_log(self, mode, loss, loss_r, loss_t, loss_t_scale):
+    def _shared_log(self, mode, loss, loss_r, loss_t, loss_ta):
         self.log_dict({
             f'{mode}_loss': loss,
             f'{mode}_loss_r': loss_r,
             f'{mode}_loss_t': loss_t,
-            f'{mode}_loss_scale': loss_t_scale,
+            f'{mode}_loss_ta': loss_ta,
         }, sync_dist=True)
 
     def training_step(self, batch, batch_idx):
-        loss, loss_r, loss_t, loss_t_scale, r_err, ta_err, t_err = self._shared_forward_step(batch, batch_idx)
+        loss, loss_r, loss_ta, loss_t, r_err, ta_err, t_err = self._shared_forward_step(batch, batch_idx)
 
         self.r_errors['train'].append(r_err)
         self.ta_errors['train'].append(ta_err)
         self.t_errors['train'].append(t_err)
 
-        self._shared_log('train', loss, loss_r, loss_t, loss_t_scale)
+        self._shared_log('train', loss, loss_r, loss_t, loss_ta)
         # self.log('s_r', self.s_r)
         # self.log('s_t', self.s_t)
 
         return loss
     
     def validation_step(self, batch, batch_idx):
-        loss, loss_r, loss_t, loss_t_scale, r_err, ta_err, t_err = self._shared_forward_step(batch, batch_idx)
+        loss, loss_r, loss_ta, loss_t, r_err, ta_err, t_err = self._shared_forward_step(batch, batch_idx)
 
         self.r_errors['valid'].append(r_err)
         self.ta_errors['valid'].append(ta_err)
         self.t_errors['valid'].append(t_err)
 
-        self._shared_log('valid', loss, loss_r, loss_t, loss_t_scale)
+        self._shared_log('valid', loss, loss_r, loss_t, loss_ta)
 
     def test_step(self, batch, batch_idx):
-        loss, loss_r, loss_t, loss_t_scale, r_err, ta_err, t_err = self._shared_forward_step(batch, batch_idx)
+        loss, loss_r, loss_ta, loss_t, r_err, ta_err, t_err = self._shared_forward_step(batch, batch_idx)
 
         self.r_errors['test'].append(r_err)
         self.ta_errors['test'].append(ta_err)
         self.t_errors['test'].append(t_err)
 
-        self._shared_log('test', loss, loss_r, loss_t, loss_t_scale)
+        self._shared_log('test', loss, loss_r, loss_t, loss_ta)
     
     def _shared_forward_step(self, batch, batch_idx):
         images = batch['images']
@@ -98,22 +99,25 @@ class PL_LightPose(L.LightningModule):
             pred_r, pred_t = self.module({'image0': {**feats0, 'intrinsics': intrinsics[:, 0], 'bbox': bboxes[:, 0]}, 'image1': {**feats1, 'intrinsics': intrinsics[:, 1]}})
 
         r_err = rotation_angular_error(pred_r, rotation)
+        ta_err = translation_angular_error(pred_t, translation)
+
         loss_r = self.criterion(r_err, torch.zeros_like(r_err))
-
+        loss_ta = self.criterion(ta_err, torch.zeros_like(ta_err))        
         loss_t = self.criterion(pred_t, translation)
-        loss_t_scale = self.criterion(pred_t / pred_t.norm(2, dim=1, keepdim=True), translation / translation.norm(2, dim=1, keepdim=True))
 
-        loss = loss_r * torch.exp(-self.s_r) + (loss_t + loss_t_scale) * torch.exp(-self.s_t) + self.s_r + self.s_t
+        loss = loss_r * torch.exp(-self.s_r) + loss_t * torch.exp(-self.s_t) + loss_ta * torch.exp(-self.s_ta) + self.s_r + self.s_t + self.s_ta
 
         r_err = r_err.detach()
-        ta_err = translation_angular_error(pred_t.detach(), translation)
+        ta_err = ta_err.detach()
         t_err = (pred_t.detach() - translation).norm(2, dim=1)
 
-        return loss, loss_r, loss_t, loss_t_scale, r_err, ta_err, t_err
+        return loss, loss_r, loss_ta, loss_t, r_err, ta_err, t_err
 
     def _shared_on_epoch_end(self, mode):
         r_errors = torch.hstack(self.r_errors[mode]).rad2deg()
-        ta_errors = torch.hstack(self.ta_errors[mode])
+        ta_errors = torch.hstack(self.ta_errors[mode]).rad2deg()
+        ta_errors = torch.minimum(ta_errors, 180-ta_errors)
+        
         auc = error_auc(torch.maximum(r_errors, ta_errors).cpu(), [5, 10, 20], mode)
         t_errors = torch.hstack(self.t_errors[mode])
 

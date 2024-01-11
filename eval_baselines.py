@@ -1,14 +1,13 @@
 import argparse
-from torch.utils.data import DataLoader
-import lightning as L
+import numpy as np
+import torch
 
 from lightglue import SuperPoint, LightGlue
-from lightglue.utils import load_image, rbd
-
+from lightglue.utils import rbd
 from kornia.feature import LoFTR
 
+from utils import compute_pose_errors, error_auc
 from datasets import dataset_dict
-from pl_trainer import PL_LightPose
 from configs.default import get_cfg_defaults
 
 
@@ -27,10 +26,15 @@ def main(args):
     extractor = SuperPoint(max_num_keypoints=2048).eval().cuda()  # load the extractor
     matcher = LightGlue(features='superpoint').eval().cuda()  # load the matcher
 
+    R_errs = []
+    t_errs = []
     for data in testset:
         # load each image as a torch.Tensor on GPU with shape (3,H,W), normalized in [0,1]
-        image0 = load_image('path/to/image_0.jpg').cuda()
-        image1 = load_image('path/to/image_1.jpg').cuda()
+        image0, image1 = data['images']
+        K0, K1 = data['intrinsics']
+        T = torch.eyes(4)
+        T[:3, :3] = data['rotation']
+        T[:3, 3] = data['translation']
 
         # extract local features
         feats0 = extractor.extract(image0)  # auto-resize the image, disable with resize=None
@@ -43,6 +47,17 @@ def main(args):
         points0 = feats0['keypoints'][matches[..., 0]]  # coordinates in image #0, shape (K,2)
         points1 = feats1['keypoints'][matches[..., 1]]  # coordinates in image #1, shape (K,2)
 
+        R_err, t_err, _ = compute_pose_errors(points0, points1, K0, K1, T)
+        R_errs.append(R_err)
+        t_errs.append(t_errs)
+
+    # pose auc
+    angular_thresholds = [5, 10, 20]
+    pose_errors = np.max(np.stack([R_errs, t_errs]), axis=0)
+    aucs = error_auc(pose_errors, angular_thresholds)  # (auc@5, auc@10, auc@20)
+
+    print(aucs)
+    
 
 def get_parser():
     parser = argparse.ArgumentParser()

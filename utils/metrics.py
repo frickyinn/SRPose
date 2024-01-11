@@ -29,9 +29,10 @@ def rotation_angular_error(R, Rgt):
 def translation_angular_error(t, tgt):
     cosine = torch.cosine_similarity(t, tgt)
     cosine = torch.clip(cosine, -0.99999, 0.99999)  # handle numerical errors and NaNs
-    t_err = torch.acos(cosine).rad2deg()
-    t_err = torch.minimum(t_err, 180-t_err)
-    t_err[tgt.norm(2, dim=1) < 0] = 0
+    t_err = torch.acos(cosine)
+    # t_err = t_err.rad2deg()
+    # t_err = torch.minimum(t_err, 180-t_err)
+    # t_err[tgt.norm(2, dim=1) < 0] = 0
 
     return t_err
 
@@ -103,40 +104,18 @@ def relative_pose_error(T_0to1, R, t, ignore_gt_t_thr=0.0):
     return t_err, R_err
 
 
-def compute_pose_errors(data, config):
-    """ 
-    Update:
-        data (dict):{
-            "R_errs" List[float]: [N]
-            "t_errs" List[float]: [N]
-            "inliers" List[np.ndarray]: [N]
-        }
-    """
-    pixel_thr = config.TRAINER.RANSAC_PIXEL_THR  # 0.5
-    conf = config.TRAINER.RANSAC_CONF  # 0.99999
-    data.update({'R_errs': [], 't_errs': [], 'inliers': []})
+def compute_pose_errors(pts0, pts1, K0, K1, T_0to1, pixel_thr=0.5, conf=0.99999):
+    ret = estimate_pose(pts0, pts1, K0, K1, pixel_thr, conf=conf)
 
-    m_bids = data['m_bids'].cpu().numpy()
-    pts0 = data['mkpts0_f'].cpu().numpy()
-    pts1 = data['mkpts1_f'].cpu().numpy()
-    K0 = data['K0'].cpu().numpy()
-    K1 = data['K1'].cpu().numpy()
-    T_0to1 = data['T_0to1'].cpu().numpy()
-
-    for bs in range(K0.shape[0]):
-        mask = m_bids == bs
-        ret = estimate_pose(pts0[mask], pts1[mask], K0[bs], K1[bs], pixel_thr, conf=conf)
-
-        if ret is None:
-            data['R_errs'].append(np.inf)
-            data['t_errs'].append(np.inf)
-            data['inliers'].append(np.array([]).astype(np.bool))
-        else:
-            R, t, inliers = ret
-            t_err, R_err = relative_pose_error(T_0to1[bs], R, t, ignore_gt_t_thr=0.0)
-            data['R_errs'].append(R_err)
-            data['t_errs'].append(t_err)
-            data['inliers'].append(inliers)
+    if ret is None:
+        R_err = np.inf
+        t_err = np.inf
+        inliers = np.array([]).astype(np.bool)
+    else:
+        R, t, inliers = ret
+        t_err, R_err = relative_pose_error(T_0to1, R, t, ignore_gt_t_thr=0.0)
+    
+    return R_err, t_err, inliers
 
 
 def relative_pose_error(T_0to1, R, t, ignore_gt_t_thr=0.0):
