@@ -54,7 +54,7 @@ def error_auc(errors, thresholds, mode):
         x = errors[:last_index] + [thr]
         aucs.append(np.trapz(y, x) / thr)
 
-    return {f'{mode}_degree_auc@{t}': auc for t, auc in zip(thresholds, aucs)}
+    return {f'{mode}_auc@{t}': auc for t, auc in zip(thresholds, aucs)}
 
 
 def estimate_pose(kpts0, kpts1, K0, K1, thresh, conf=0.99999):
@@ -83,6 +83,7 @@ def estimate_pose(kpts0, kpts1, K0, K1, thresh, conf=0.99999):
             ret = (R, t[:, 0], mask.ravel() > 0)
             best_num_inliers = n
 
+    print(np.linalg.norm(t))
     return ret
 
 
@@ -110,7 +111,7 @@ def compute_pose_errors(pts0, pts1, K0, K1, T_0to1, pixel_thr=0.5, conf=0.99999)
     if ret is None:
         R_err = np.inf
         t_err = np.inf
-        inliers = np.array([]).astype(np.bool)
+        inliers = np.array([]).astype(bool)
     else:
         R, t, inliers = ret
         t_err, R_err = relative_pose_error(T_0to1, R, t, ignore_gt_t_thr=0.0)
