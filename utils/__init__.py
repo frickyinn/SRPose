@@ -3,7 +3,7 @@ import numpy as np
 import random
 import torch
 
-from .error import quat_degree_error, rot_degree_error
+from .metrics import quat_degree_error, rotation_angular_error, translation_angular_error, error_auc, compute_pose_errors
 from .transform import rotation_matrix_from_ortho6d, rotation_matrix_from_quaternion
 from .augment import Augmentor
 

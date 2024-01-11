@@ -6,7 +6,7 @@ import random
 import numpy as np
 import torch
 from PIL import Image
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, ConcatDataset
 from torch.nn import functional as F
 
 from utils import Augmentor
@@ -50,6 +50,7 @@ class BOPDataset(Dataset):
                  scene_path,
                  object_id,
                  min_visible_fract,
+                 mode,
                  rgb_postfix='.png',
                  object_scale=None
                  ):
@@ -124,7 +125,7 @@ class BOPDataset(Dataset):
         self.extrinsics = np.array(self.extrinsics)[visib_filter]
         self.intrinsics = np.array(self.intrinsics)[visib_filter]
 
-        self.augment = Augmentor()
+        self.augment = Augmentor(mode=='train')
 
         assert len(self.depth_paths) == len(self.mask_paths)
         assert len(self.depth_paths) == len(self.color_paths)
@@ -297,7 +298,7 @@ class Linemod(Dataset):
         
         data_root = Path(data_root)
         scene_path = data_root / type_path / f'{scene_id:06d}'
-        self.bop_dataset = BOPDataset(data_root, scene_path, object_id=object_id, min_visible_fract=min_visible_fract, rgb_postfix=rgb_postfix)
+        self.bop_dataset = BOPDataset(data_root, scene_path, object_id=object_id, min_visible_fract=min_visible_fract, mode=mode, rgb_postfix=rgb_postfix)
 
         angle_err = self.get_angle_error(torch.from_numpy(self.bop_dataset.extrinsics[:, :3, :3]))
         index0, index1 = torch.where(angle_err < max_angle_error)
@@ -348,4 +349,9 @@ class Linemod(Dataset):
 
 def build_linemod(mode, config):
     config = config.DATASET
-    return Linemod(config.DATA_ROOT, mode, config.OBJECT_ID, config.MIN_VISIBLE_FRACT, config.MAX_ANGLE_ERROR)
+
+    datasets = []
+    for i, _ in enumerate(LINEMOD_ID_TO_NAME):
+        datasets.append(Linemod(config.DATA_ROOT, mode, i+1, config.MIN_VISIBLE_FRACT, config.MAX_ANGLE_ERROR))
+
+    return ConcatDataset(datasets)

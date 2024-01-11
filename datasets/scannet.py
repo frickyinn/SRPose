@@ -57,7 +57,7 @@ class ScanNetDataset(Dataset):
 
         # # for training LoFTR
         # self.augment_fn = augment_fn if mode == 'train' else None
-        self.augment = Augmentor()
+        self.augment = Augmentor(mode=='train')
 
     def __len__(self):
         return len(self.data_names)

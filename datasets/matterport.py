@@ -43,7 +43,7 @@ class Matterport3D(Dataset):
         scene_info['intrinsics'] = torch.tensor(scene_info['intrinsics'])
 
         self.scene_info = scene_info
-        self.augment = Augmentor()
+        self.augment = Augmentor(mode=='train')
 
         self.is_training = mode == 'train'
 

@@ -55,7 +55,7 @@ class MegaDepthDataset(Dataset):
         del self.scene_info['pair_infos']
         self.pair_infos = [pair_info for pair_info in self.pair_infos if pair_info[1] > min_overlap_score]
 
-        self.augment = Augmentor()
+        self.augment = Augmentor(mode=='train')
 
         # # parameters for image resizing, padding and depthmap padding
         # if mode == 'train':
