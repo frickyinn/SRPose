@@ -248,7 +248,7 @@ class BOPDataset(Dataset):
 
     def __getitem__(self, idx):
         color = self._load_color(self.color_paths[idx])
-        color = self.augment(color)
+        # color = self.augment(color)
         color = (torch.tensor(color).float() / 255.0).permute(2, 0, 1)
         mask = self._load_mask(self.mask_paths[idx])
         mask = torch.tensor(mask).bool()
@@ -289,7 +289,7 @@ class Linemod(Dataset):
             type_path = 'train_pbr'
             rgb_postfix = '.jpg'
             scene_id = object_id
-        elif mode == 'val':
+        elif mode == 'val' or mode == 'test':
             type_path = 'test'
             rgb_postfix = '.png'
             scene_id = object_id

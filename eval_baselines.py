@@ -10,6 +10,7 @@ from kornia.feature import LoFTR
 
 from utils import compute_pose_errors, error_auc, rotation_angular_error
 from datasets import dataset_dict
+from datasets.linemod import Linemod
 from configs.default import get_cfg_defaults
 
 
@@ -26,7 +27,8 @@ def main(args):
         data_root = config.DATASET.DATA_ROOT
     
     build_fn = dataset_dict[args.task][args.dataset]
-    testset = build_fn('test', config)
+    # testset = build_fn('test', config)
+    testset = Linemod(config.DATASET.DATA_ROOT, 'test', 2, config.DATASET.MIN_VISIBLE_FRACT, config.DATASET.MAX_ANGLE_ERROR)
     # testloader = DataLoader(testset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory)
 
     # SuperPoint+LightGlue
@@ -37,13 +39,20 @@ def main(args):
     t_errs = []
     R_gts = []
     t_gts = []
-    for data in tqdm(testset):
+    for i, data in enumerate(tqdm(testset)):
+        if i > 1500:
+            break
         if args.dataset == 'megadepth':
             # load each image as a torch.Tensor on GPU with shape (3,H,W), normalized in [0,1]
             image0 = load_image(os.path.join(data_root, data['pair_names'][0])).cuda()
             image1 = load_image(os.path.join(config.DATASET.TEST.DATA_ROOT, data['pair_names'][1])).cuda()
         else:
             image0, image1 = data['images'].cuda()
+
+        # if args.task == 'object':
+        #     x1, y1, x2, y2 = data['bboxes'][0]
+        #     # image0_ = image0
+        #     image0 = image0[:, y1:y2, x1:x2]
         
         K0, K1 = data['intrinsics'].numpy()
         T = torch.eye(4)
@@ -66,6 +75,10 @@ def main(args):
         matches = matches01['matches']  # indices with shape (K,2)
         points0 = feats0['keypoints'][matches[..., 0]]  # coordinates in image #0, shape (K,2)
         points1 = feats1['keypoints'][matches[..., 1]]  # coordinates in image #1, shape (K,2)
+
+        # if args.task == 'object':
+        #     points0[:, 0] += x1
+        #     points0[:, 1] += y1
 
         R_err, t_err, _ = compute_pose_errors(points0.cpu().numpy(), points1.cpu().numpy(), K0, K1, T)
         R_errs.append(R_err)
