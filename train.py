@@ -57,12 +57,13 @@ def main(args):
     )
 
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
-    checkpoint_callback = ModelCheckpoint(monitor='valid_degree_auc@5', mode='max')
+    checkpoint_callback = ModelCheckpoint(monitor='valid_auc@5', mode='max')
     trainer = L.Trainer(
         devices=[0, 1, 2, 3], accelerator='gpu', strategy='ddp_find_unused_parameters_true', 
         max_epochs=epochs, 
         callbacks=[lr_monitor, checkpoint_callback],
         precision="bf16-mixed",
+        # fast_dev_run=1,
     )
     
     trainer.fit(pl_lightpose, trainloader, validloader, ckpt_path=args.resume)

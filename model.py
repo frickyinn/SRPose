@@ -341,6 +341,14 @@ class LightPose(nn.Module):
             nn.Linear(conf.input_dim//2, 3),
         )
 
+        # self.regressor = nn.Sequential(
+        #     nn.Linear(conf.input_dim*2, conf.input_dim), 
+        #     nn.ReLU(), 
+        #     nn.Linear(conf.input_dim, conf.input_dim//2), 
+        #     nn.ReLU(), 
+        #     nn.Linear(conf.input_dim//2, 9),
+        # )
+
         # state_dict = None
         # if features is not None:
         #     fname = f"{conf.weights}_{self.version.replace('.', '-')}.pth"
@@ -487,6 +495,9 @@ class LightPose(nn.Module):
         R = self.rotation_regressor(feat)
         R = rotation_matrix_from_ortho6d(R)
         t = self.translation_regressor(feat)
+        # pose = self.regressor(feat)
+        # R = rotation_matrix_from_ortho6d(pose[..., :6])
+        # t = pose[..., 6:]
 
         return R, t
     
