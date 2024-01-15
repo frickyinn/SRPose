@@ -61,6 +61,21 @@ _CN.TRAINER.SAVE_PATH = './checkpoints'
 _CN.RANDOM_SEED = 0
 
 
+_CN.EMAT_RANSAC = CN()
+_CN.EMAT_RANSAC.PIX_THRESHOLD = 0.5
+_CN.EMAT_RANSAC.SCALE_THRESHOLD = 0.1
+_CN.EMAT_RANSAC.CONFIDENCE = 0.99999
+
+_CN.PNP = CN()
+_CN.PNP.RANSAC_ITER = 1000
+_CN.PNP.REPROJECTION_INLIER_THRESHOLD = 3
+_CN.PNP.CONFIDENCE = 0.99999
+
+_CN.PROCRUSTES = CN()
+_CN.PROCRUSTES.MAX_CORR_DIST = 0.05 # meters
+_CN.PROCRUSTES.REFINE = False
+
+
 def get_cfg_defaults():
     """Get a yacs CfgNode object with default values for my_project."""
     # Return a clone so that the defaults will not be altered

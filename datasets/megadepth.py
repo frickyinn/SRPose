@@ -162,6 +162,7 @@ class MegaDepthDataset(Dataset):
             # 'scene_id': self.scene_id,
             # 'pair_id': idx,
             'pair_names': (self.scene_info['image_paths'][idx0], self.scene_info['image_paths'][idx1]),
+            'depth_pair_names': (self.scene_info['depth_paths'][idx0], self.scene_info['depth_paths'][idx1]),
         }
 
         return data

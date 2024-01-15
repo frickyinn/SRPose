@@ -1,9 +1,11 @@
+from typing import Any
 import numpy as np
 import torch
 import lightning as L
 from lightglue import SuperPoint
 
 from utils import rotation_angular_error, translation_angular_error, error_auc
+from utils.reprojection import reprojection_error
 from model import LightPose
 
 
@@ -115,6 +117,30 @@ class PL_LightPose(L.LightningModule):
         t_err = (pred_t.detach() - translation).norm(2, dim=1)
 
         return loss, loss_r, loss_ta, loss_t, loss_tn, r_err, ta_err, t_err
+
+    def predict_one_data(self, data, device='cuda'):
+        images = data['images'][None].to(device)
+        intrinsics = data['intrinsics'][None].to(device)
+
+        image0 = images[:, 0, ...]
+        image1 = images[:, 1, ...]
+
+        with torch.no_grad():
+            feats0 = self.extractor({'image': image0})
+            feats1 = self.extractor({'image': image1})
+
+        if 'scales' in data:
+            scales = data['scales'][None].to(device)
+            feats0['keypoints'] *= scales[:, 0].unsqueeze(1)
+            feats1['keypoints'] *= scales[:, 1].unsqueeze(1)
+
+        if self.hparams.task == 'scene':
+            pred_r, pred_t = self.module({'image0': {**feats0, 'intrinsics': intrinsics[:, 0]}, 'image1': {**feats1, 'intrinsics': intrinsics[:, 1]}})
+        elif self.hparams.task == 'object':
+            bboxes = data['bboxes'][None].to(device)
+            pred_r, pred_t = self.module({'image0': {**feats0, 'intrinsics': intrinsics[:, 0], 'bbox': bboxes[:, 0]}, 'image1': {**feats1, 'intrinsics': intrinsics[:, 1]}})
+
+        return pred_r[0], pred_t[0]
 
     def _shared_on_epoch_end(self, mode):
         r_errors = torch.hstack(self.r_errors[mode]).rad2deg()
