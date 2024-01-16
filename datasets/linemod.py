@@ -279,12 +279,13 @@ class BOPDataset(Dataset):
             'bbox_obj': bbox_obj,
             'bbox_visib': bbox_visib,
             'visib_fract': visib_fract,
-            'px_count_visib': px_count_visib
+            'px_count_visib': px_count_visib,
+            'color_path': str(self.color_paths[idx]).split('/', 2)[-1],
         }
 
 
 class Linemod(Dataset):
-    def __init__(self, data_root, mode, object_id, min_visible_fract=0.5, max_angle_error=60):
+    def __init__(self, data_root, mode, object_id, min_visible_fract, max_angle_error):
         if mode == 'train':
             type_path = 'train_pbr'
             rgb_postfix = '.jpg'
@@ -344,14 +345,67 @@ class Linemod(Dataset):
             'translation': rel_t,
             'intrinsics': intrinsics,
             'bboxes': bboxes,
+            'pair_names': (data0['color_path'], data1['color_path']),
+        }
+    
+
+class LinemodfromJson(Dataset):
+    def __init__(self, data_root, json_path):
+        self.data_root = Path(data_root)
+        with open(json_path, 'r') as f:
+            self.scene_info = json.load(f)
+
+        self.image_scale = 1.0
+
+    def _load_color(self, path):
+        image = Image.open(path)
+        new_shape = (int(image.width * self.image_scale), int(image.height * self.image_scale))
+        image = image.resize(new_shape)
+        image = np.array(image)
+        return image
+
+    def __len__(self):
+        return len(self.scene_info)
+
+    def __getitem__(self, idx):
+        info = self.scene_info[str(idx)]
+        pair_names = info['pair_names']
+
+        image0 = self._load_color(str(self.data_root / pair_names[0]))
+        image0 = (torch.tensor(image0).float() / 255.0).permute(2, 0, 1)
+        image1 = self._load_color(str(self.data_root / pair_names[1]))
+        image1 = (torch.tensor(image1).float() / 255.0).permute(2, 0, 1)
+        images = torch.stack([image0, image1], dim=0)
+
+        rotation = torch.tensor(info['rotation']).reshape(3, 3)
+        translation = torch.tensor(info['translation'])
+        intrinsics = torch.tensor(info['intrinsics']).reshape(2, 3, 3)
+        bboxes = torch.tensor(info['bboxes'])
+
+        return {
+            'images': images,
+            'rotation': rotation,
+            'translation': translation,
+            'intrinsics': intrinsics,
+            'bboxes': bboxes,
         }
 
 
 def build_linemod(mode, config):
     config = config.DATASET
 
-    datasets = []
-    for i, _ in enumerate(LINEMOD_ID_TO_NAME):
-        datasets.append(Linemod(config.DATA_ROOT, mode, i+1, config.MIN_VISIBLE_FRACT, config.MAX_ANGLE_ERROR))
+    # datasets = []
+    # for i, _ in enumerate(LINEMOD_ID_TO_NAME):
+    #     datasets.append(Linemod(config.DATA_ROOT, mode, i+1, config.MIN_VISIBLE_FRACT, config.MAX_ANGLE_ERROR))
 
-    return ConcatDataset(datasets)
+    # return ConcatDataset(datasets)
+
+    if mode == 'train':
+        datasets = []
+        for i, _ in enumerate(LINEMOD_ID_TO_NAME):
+            datasets.append(Linemod(config.DATA_ROOT, mode, i+1, config.MIN_VISIBLE_FRACT, config.MAX_ANGLE_ERROR))
+
+        return ConcatDataset(datasets)
+    
+    elif mode == 'test':
+        return LinemodfromJson(config.DATA_ROOT, config.JSON_PATH)

@@ -76,6 +76,7 @@ def get_parser():
     parser.add_argument('--dataset', type=str, help='matterport | megadepth | scannet | bop', required=True)
     parser.add_argument('--config', type=str, help='.yaml configure file path', required=True)
     parser.add_argument('--resume', type=str, default=None)
+    parser.add_argument('--weights', type=str, default=None)
 
     # parser.add_argument('--world_size', type=int, default=2)
     # parser.add_argument('--device', type=str, default='cuda:0')

@@ -1,6 +1,7 @@
 DATASET:
   DATA_SOURCE: 'linemod'
   DATA_ROOT: 'data/lm'
+  JSON_PATH: 'assets/linemod_test_1500/linemod_test.json'
 
   MIN_VISIBLE_FRACT: 0.75
   MAX_ANGLE_ERROR: 30
