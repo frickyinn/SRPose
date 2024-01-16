@@ -104,26 +104,26 @@ def main(args):
         t_gt = torch.tensor(T[:3, 3]).norm(2)
         t_gts.append(t_gt)
 
-        for sol in solvers:
-            solver = solvers[sol]
-            R_est, t_est, _ = solver.estimate_pose(points0.cpu().numpy(), points1.cpu().numpy(), {'K_color0': K0, 'K_color1': K1, 'depth0': depth0, 'depth1': depth1})
-            if np.isnan(R_est).any():
-                # print(i, sol, 'r')
-                # if f == 1:
-                #     plt.subplot(1, 2, 1)
-                #     plt.imshow(image0.permute(1, 2, 0).cpu())
-                #     plt.subplot(1, 2, 2)
-                #     plt.imshow(image1.permute(1, 2, 0).cpu())
-                #     plt.show()
-                # if f == 2:
-                #     plt.subplot(1, 2, 1)
-                #     plt.imshow(depth0)
-                #     plt.subplot(1, 2, 2)
-                #     plt.imshow(depth1)
-                #     plt.show()
-                continue
-            repr_err = reprojection_error(R_est, t_est[:, 0], T[:3, :3], T[:3, 3], K=K1, W=image1.shape[-1], H=image1.shape[-2])
-            repr_errs[sol].append(repr_err)
+        # for sol in solvers:
+        #     solver = solvers[sol]
+        #     R_est, t_est, _ = solver.estimate_pose(points0.cpu().numpy(), points1.cpu().numpy(), {'K_color0': K0, 'K_color1': K1, 'depth0': depth0, 'depth1': depth1})
+        #     if np.isnan(R_est).any():
+        #         # print(i, sol, 'r')
+        #         # if f == 1:
+        #         #     plt.subplot(1, 2, 1)
+        #         #     plt.imshow(image0.permute(1, 2, 0).cpu())
+        #         #     plt.subplot(1, 2, 2)
+        #         #     plt.imshow(image1.permute(1, 2, 0).cpu())
+        #         #     plt.show()
+        #         # if f == 2:
+        #         #     plt.subplot(1, 2, 1)
+        #         #     plt.imshow(depth0)
+        #         #     plt.subplot(1, 2, 2)
+        #         #     plt.imshow(depth1)
+        #         #     plt.show()
+        #         continue
+        #     repr_err = reprojection_error(R_est, t_est[:, 0], T[:3, :3], T[:3, 3], K=K1, W=image1.shape[-1], H=image1.shape[-2])
+        #     repr_errs[sol].append(repr_err)
 
     # pose auc
     angular_thresholds = [5, 10, 20]
@@ -146,9 +146,9 @@ def main(args):
     print(f'rel_translation_avg:\t{t_gts.mean():.2f}')
     print(f'rel_translation_med:\t{t_gts.median():.2f}')
 
-    for sol in repr_errs:
-        re = np.array(repr_errs[sol])
-        print(f'{sol}_repr_err:\t{re.mean():.4f}')
+    # for sol in repr_errs:
+    #     re = np.array(repr_errs[sol])
+    #     print(f'{sol}_repr_err:\t{re.mean():.4f}')
 
 def get_parser():
     parser = argparse.ArgumentParser()

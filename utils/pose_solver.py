@@ -45,7 +45,7 @@ class EssentialMatrixSolver:
         # compute pose with OpenCV
         E, mask = cv.findEssentialMat(
             kpts0, kpts1, np.eye(3),
-            threshold=ransac_thr, prob=self.ransac_confidence, method=cv.USAC_MAGSAC)
+            threshold=ransac_thr, prob=self.ransac_confidence, method=cv.RANSAC)
         self.mask = mask
         if E is None:
             return R, t, 0

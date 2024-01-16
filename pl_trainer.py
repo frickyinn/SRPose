@@ -5,7 +5,6 @@ import lightning as L
 from lightglue import SuperPoint
 
 from utils import rotation_angular_error, translation_angular_error, error_auc
-from utils.reprojection import reprojection_error
 from model import LightPose
 
 

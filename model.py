@@ -9,6 +9,7 @@ import torch.nn.functional as F
 from torch import nn
 
 from utils import rotation_matrix_from_ortho6d
+# from utils.transform import recover_pose
 
 try:
     from flash_attn.modules.mha import FlashCrossAttention
@@ -346,7 +347,7 @@ class LightPose(nn.Module):
         #     nn.ReLU(), 
         #     nn.Linear(conf.input_dim, conf.input_dim//2), 
         #     nn.ReLU(), 
-        #     nn.Linear(conf.input_dim//2, 9),
+        #     nn.Linear(conf.input_dim//2, 11),
         # )
 
         # state_dict = None
@@ -498,6 +499,9 @@ class LightPose(nn.Module):
         # pose = self.regressor(feat)
         # R = rotation_matrix_from_ortho6d(pose[..., :6])
         # t = pose[..., 6:]
+        # x = self.regressor(feat)
+        # ess = x[:, :9].reshape(-1, 3, 3)
+        # R, t = recover_pose(ess, x[:, 9], x[:, 10])
 
         return R, t
     
