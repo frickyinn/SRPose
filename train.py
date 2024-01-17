@@ -32,7 +32,7 @@ def main(args):
     trainset = build_fn('train', config)
     validset = build_fn('val', config)
 
-    if args.dataset == 'scannet' or args.dataset == 'megadepth':
+    if args.dataset == 'scannet' or args.dataset == 'megadepth' or args.dataset == 'linemod':
         sampler = RandomConcatSampler(
             trainset,
             n_samples_per_subset=n_samples_per_subset,
@@ -46,7 +46,7 @@ def main(args):
 
     validloader = DataLoader(validset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory)
 
-    if args.weights is not None:
+    if args.weights is None:
         pl_lightpose = PL_LightPose(
             task=args.task,
             lr=lr,
@@ -71,7 +71,7 @@ def main(args):
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
     checkpoint_callback = ModelCheckpoint(monitor='valid_auc@5', mode='max')
     trainer = L.Trainer(
-        devices=[0, 1, 2, 3], accelerator='gpu', strategy='ddp_find_unused_parameters_true', 
+        devices=[0, 1], accelerator='gpu', strategy='ddp_find_unused_parameters_true', 
         max_epochs=epochs, 
         callbacks=[lr_monitor, checkpoint_callback],
         precision="bf16-mixed",

@@ -469,12 +469,10 @@ class LightPose(nn.Module):
             desc0 = gather(desc0, ind0)
             kpts0 = gather(kpts0, ind0)
 
-        # return matchability, kpts0, kpts1
-
         desc0 = self.input_proj(desc0)
         desc1 = self.input_proj(desc1)
-        # cache positional embeddings
 
+        # cache positional embeddings
         kpts0 = normalize_keypoints(kpts0, intrinsic0)
         kpts1 = normalize_keypoints(kpts1, intrinsic1)
 
@@ -489,7 +487,11 @@ class LightPose(nn.Module):
             )
 
         desc0, desc1 = desc0[..., :m, :], desc1[..., :n, :]
-        desc0, desc1 = desc0.mean(1), desc1.mean(1)
+        if self.conf.task == 'object':
+            desc0 = (desc0 * mask0.unsqueeze(-1)).sum(1) / mask0.sum(1, keepdim=True)
+            desc1 = desc1.mean(1)
+        else:
+            desc0, desc1 = desc0.mean(1), desc1.mean(1)
         
         feat = torch.cat([desc0, desc1], 1)
 

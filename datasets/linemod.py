@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 import math
 import random
+from tqdm import tqdm, trange
 
 import numpy as np
 import torch
@@ -285,11 +286,11 @@ class BOPDataset(Dataset):
 
 
 class Linemod(Dataset):
-    def __init__(self, data_root, mode, object_id, min_visible_fract, max_angle_error):
+    def __init__(self, data_root, mode, object_id, scene_id, min_visible_fract, max_angle_error):
         if mode == 'train':
             type_path = 'train_pbr'
             rgb_postfix = '.jpg'
-            scene_id = object_id
+            scene_id = scene_id
         elif mode == 'val' or mode == 'test':
             type_path = 'test'
             rgb_postfix = '.png'
@@ -402,10 +403,16 @@ def build_linemod(mode, config):
 
     if mode == 'train':
         datasets = []
-        for i, _ in enumerate(LINEMOD_ID_TO_NAME):
-            datasets.append(Linemod(config.DATA_ROOT, mode, i+1, config.MIN_VISIBLE_FRACT, config.MAX_ANGLE_ERROR))
-
+        with tqdm(total=len(LINEMOD_ID_TO_NAME) * 50) as t:
+            t.set_description(f'Loading Linemod {mode} datasets')
+            for i, _ in enumerate(LINEMOD_ID_TO_NAME):
+                for j in range(50):
+                    t.update(1)
+                    try:
+                        datasets.append(Linemod(config.DATA_ROOT, mode, i+1, j, config.MIN_VISIBLE_FRACT, config.MAX_ANGLE_ERROR))
+                    except KeyError:
+                        continue
         return ConcatDataset(datasets)
     
-    elif mode == 'test':
+    elif mode == 'test' or mode == 'val':
         return LinemodfromJson(config.DATA_ROOT, config.JSON_PATH)
