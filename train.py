@@ -46,20 +46,32 @@ def main(args):
 
     validloader = DataLoader(validset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory)
 
-    pl_lightpose = PL_LightPose(
-        task=args.task,
-        lr=lr,
-        epochs=epochs,
-        pct_start=pct_start,
-        n_layers=n_layers,
-        num_heads=num_heads,
-        num_keypoints=num_keypoints,
-    )
+    if args.weights is not None:
+        pl_lightpose = PL_LightPose(
+            task=args.task,
+            lr=lr,
+            epochs=epochs,
+            pct_start=pct_start,
+            n_layers=n_layers,
+            num_heads=num_heads,
+            num_keypoints=num_keypoints,
+        )
+    else:
+        pl_lightpose = PL_LightPose.load_from_checkpoint(
+            checkpoint_path=args.weights,
+            task=args.task,
+            lr=lr,
+            epochs=epochs,
+            pct_start=pct_start,
+            n_layers=n_layers,
+            num_heads=num_heads,
+            num_keypoints=num_keypoints,
+        )
 
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
     checkpoint_callback = ModelCheckpoint(monitor='valid_auc@5', mode='max')
     trainer = L.Trainer(
-        devices=[0, 1], accelerator='gpu', strategy='ddp_find_unused_parameters_true', 
+        devices=[0, 1, 2, 3], accelerator='gpu', strategy='ddp_find_unused_parameters_true', 
         max_epochs=epochs, 
         callbacks=[lr_monitor, checkpoint_callback],
         precision="bf16-mixed",
