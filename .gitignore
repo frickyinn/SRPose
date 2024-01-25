@@ -8,3 +8,4 @@
 preprocess_megadepth.py
 *.ckpt
 test.py
+/RelPoseRepo

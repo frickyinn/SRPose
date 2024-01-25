@@ -34,7 +34,7 @@ def main(args):
     build_fn = dataset_dict[args.task][args.dataset]
     testset = build_fn('test', config)
     # testset = Linemod(config.DATASET.DATA_ROOT, 'test', 2, config.DATASET.MIN_VISIBLE_FRACT, config.DATASET.MAX_ANGLE_ERROR)
-    # testloader = DataLoader(testset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=1)
 
     # SuperPoint+LightGlue
     extractor = SuperPoint(max_num_keypoints=2048).eval().cuda()  # load the extractor
@@ -56,9 +56,9 @@ def main(args):
     R_gts = []
     t_gts = []
     # repr_errs = {x: [] for x in solvers}
-    for i, data in enumerate(tqdm(testset)):
-        if i > 1500:
-            break
+    for i, data in enumerate(tqdm(testloader)):
+        # if i > 1500:
+        #     break
         if args.dataset == 'megadepth':
             # load each image as a torch.Tensor on GPU with shape (3,H,W), normalized in [0,1]
             image0 = load_image(os.path.join(data_root, data['pair_names'][0])).cuda()
@@ -68,45 +68,46 @@ def main(args):
             assert image0.shape[1:] == depth0.shape
             assert image1.shape[1:] == depth1.shape
         else:
-            image0, image1 = data['images'].cuda()
+            image0, image1 = data['images'][0].cuda()
         
         if args.task == 'object':
-            x1, y1, x2, y2 = data['bboxes'][0]
+            x1, y1, x2, y2 = data['bboxes'][0, 0]
             image0_b = image0[:, y1:y2, x1:x2]
             scale0 = torch.tensor([image0_b.shape[-1]/w_new, image0_b.shape[-2]/h_new], dtype=torch.float)
             image0_ = resize(image0_b)
 
-            u1, v1, u2, v2 = data['bboxes'][1]
+            u1, v1, u2, v2 = data['bboxes'][0, 1]
             image1_b = image1[:, v1:v2, u1:u2]
             scale1 = torch.tensor([image1_b.shape[-1]/w_new, image1_b.shape[-2]/h_new], dtype=torch.float)
             image1_ = resize(image1_b)
         
-        K0, K1 = data['intrinsics']
+        K0, K1 = data['intrinsics'][0]
         T = torch.eye(4)
-        T[:3, :3] = data['rotation']
-        T[:3, 3] = data['translation']
+        T[:3, :3] = data['rotation'][0]
+        T[:3, 3] = data['translation'][0]
         T = T.numpy()
 
-        # # extract local features
-        # feats0 = extractor.extract(image0_)  # auto-resize the image, disable with resize=None
-        # feats1 = extractor.extract(image1_)
+        # extract local features
+        feats0 = extractor.extract(image0_)  # auto-resize the image, disable with resize=None
+        feats1 = extractor.extract(image1_)
         
         # # if 'scales' in data:
         # #     scales = data['scales']
         # #     feats0['keypoints'] *= scales[0].unsqueeze(0).cuda()
         # #     feats1['keypoints'] *= scales[1].unsqueeze(0).cuda()
 
-        # # match the features
-        # matches01 = matcher({'image0': feats0, 'image1': feats1})
-        # feats0, feats1, matches01 = [rbd(x) for x in [feats0, feats1, matches01]]  # remove batch dimension
-        # matches = matches01['matches']  # indices with shape (K,2)
-        # points0 = feats0['keypoints'][matches[..., 0]]  # coordinates in image #0, shape (K,2)
-        # points1 = feats1['keypoints'][matches[..., 1]]  # coordinates in image #1, shape (K,2)
+        # match the features
+        matches01 = matcher({'image0': feats0, 'image1': feats1})
+        feats0, feats1, matches01 = [rbd(x) for x in [feats0, feats1, matches01]]  # remove batch dimension
+        matches = matches01['matches']  # indices with shape (K,2)
+        points0 = feats0['keypoints'][matches[..., 0]]  # coordinates in image #0, shape (K,2)
+        points1 = feats1['keypoints'][matches[..., 1]]  # coordinates in image #1, shape (K,2)
 
-        image0_ = image0_[0] * 0.3 + image0_[1] * 0.59 + image0_[2] * 0.11
-        image1_ = image1_[0] * 0.3 + image1_[1] * 0.59 + image1_[2] * 0.11
-        out = loftr({'image0': image0_.unsqueeze(0).unsqueeze(0), 'image1': image1_.unsqueeze(0).unsqueeze(0)})
-        points0, points1 = out['keypoints0'], out['keypoints1']
+        # image0_, image1_ = image0, image1
+        # image0_ = image0_[0] * 0.3 + image0_[1] * 0.59 + image0_[2] * 0.11
+        # image1_ = image1_[0] * 0.3 + image1_[1] * 0.59 + image1_[2] * 0.11
+        # out = loftr({'image0': image0_.unsqueeze(0).unsqueeze(0), 'image1': image1_.unsqueeze(0).unsqueeze(0)})
+        # points0, points1 = out['keypoints0'], out['keypoints1']
 
         if args.task == 'object':
             points0 *= scale0.unsqueeze(0).cuda()

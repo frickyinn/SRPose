@@ -488,7 +488,9 @@ class LightPose(nn.Module):
 
         desc0, desc1 = desc0[..., :m, :], desc1[..., :n, :]
         if self.conf.task == 'object':
-            desc0 = (desc0 * mask0.unsqueeze(-1)).sum(1) / mask0.sum(1, keepdim=True)
+            n_kpts0 = mask0.sum(1, keepdim=True)
+            n_kpts0 = torch.clip(n_kpts0, min=1)
+            desc0 = (desc0 * mask0.unsqueeze(-1)).sum(1) / n_kpts0
             desc1 = desc1.mean(1)
         else:
             desc0, desc1 = desc0.mean(1), desc1.mean(1)

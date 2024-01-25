@@ -140,7 +140,9 @@ class ScanNetDataset(Dataset):
             'images': images,
             'rotation': T_0to1[:3, :3],
             'translation': T_0to1[:3, 3],
-            'intrinsics': intrinsics
+            'intrinsics': intrinsics,
+            'pair_names': (osp.join(scene_name, 'color', f'{stem_name_0}.jpg'),
+                           osp.join(scene_name, 'color', f'{stem_name_1}.jpg'))
         }
 
         return data

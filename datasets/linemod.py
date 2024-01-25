@@ -319,7 +319,7 @@ class Linemod(Dataset):
         cosine = (trace - 1) / 2
         cosine = torch.clip(cosine, -1, 1)
         R_err = torch.acos(cosine)
-        angle_err = R_err * 180 / torch.pi
+        angle_err = R_err.rad2deg()
 
         return angle_err
 
