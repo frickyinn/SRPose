@@ -74,7 +74,7 @@ def main(args):
     trainer = L.Trainer(
         devices=[0, 1], accelerator='gpu', strategy='ddp_find_unused_parameters_true', 
         max_epochs=epochs, 
-        callbacks=[lr_monitor, lastest_checkpoint_callback, best_checkpoint_callback],
+        callbacks=[lr_monitor, latest_checkpoint_callback, best_checkpoint_callback],
         precision="bf16-mixed",
         # fast_dev_run=1,
     )

@@ -282,6 +282,8 @@ class BOPDataset(Dataset):
             'visib_fract': visib_fract,
             'px_count_visib': px_count_visib,
             'color_path': str(self.color_paths[idx]).split('/', 2)[-1],
+            'object_scale': self.object_scale,
+            'depth_scale': self.depth_scales[idx]
         }
 
 
@@ -347,6 +349,8 @@ class Linemod(Dataset):
             'intrinsics': intrinsics,
             'bboxes': bboxes,
             'pair_names': (data0['color_path'], data1['color_path']),
+            'object_scale': data0['object_scale'],
+            'depth_scale': (data0['depth_scale'], data1['depth_scale']),
         }
     
 
@@ -364,6 +368,24 @@ class LinemodfromJson(Dataset):
         image = image.resize(new_shape)
         image = np.array(image)
         return image
+    
+    def _load_mask(self, path):
+        path = path.replace('rgb', 'mask_visib').replace('.png', '_000000.png')
+        image = Image.open(path)
+        new_shape = (int(image.width * self.image_scale), int(image.height * self.image_scale))
+        image = image.resize(new_shape)
+        image = np.array(image, dtype=bool)
+        if len(image.shape) > 2:
+            image = image[:, :, 0]
+        return image
+    
+    def _load_depth(self, path):
+        path = path.replace('rgb', 'depth')
+        image = Image.open(path)
+        new_shape = (int(image.width * self.image_scale), int(image.height * self.image_scale))
+        image = image.resize(new_shape)
+        image = np.array(image, dtype=np.float32)
+        return image
 
     def __len__(self):
         return len(self.scene_info)
@@ -378,6 +400,18 @@ class LinemodfromJson(Dataset):
         image1 = (torch.tensor(image1).float() / 255.0).permute(2, 0, 1)
         images = torch.stack([image0, image1], dim=0)
 
+        mask0 = self._load_mask(str(self.data_root / pair_names[0]))
+        mask0 = torch.tensor(mask0).bool()
+        mask1 = self._load_mask(str(self.data_root / pair_names[1]))
+        mask1 = torch.tensor(mask1).bool()
+        masks = torch.stack([mask0, mask1], dim=0)
+
+        depth0 = self._load_depth(str(self.data_root / pair_names[0]))
+        depth0 = torch.tensor(depth0) * info['object_scale'] * info['depth_scale'][0]
+        depth1 = self._load_depth(str(self.data_root / pair_names[1]))
+        depth1 = torch.tensor(depth1) * info['object_scale'] * info['depth_scale'][1]
+        depths = torch.stack([depth0, depth1], dim=0)
+
         rotation = torch.tensor(info['rotation']).reshape(3, 3)
         translation = torch.tensor(info['translation'])
         intrinsics = torch.tensor(info['intrinsics']).reshape(2, 3, 3)
@@ -385,6 +419,8 @@ class LinemodfromJson(Dataset):
 
         return {
             'images': images,
+            'masks': masks,
+            'depths': depths,
             'rotation': rotation,
             'translation': translation,
             'intrinsics': intrinsics,
@@ -415,4 +451,9 @@ def build_linemod(mode, config):
         return ConcatDataset(datasets)
     
     elif mode == 'test' or mode == 'val':
+        # datasets = []
+        # for i, _ in enumerate(LINEMOD_ID_TO_NAME):
+        #     datasets.append(Linemod(config.DATA_ROOT, mode, i+1, i+1, config.MIN_VISIBLE_FRACT, config.MAX_ANGLE_ERROR))
+
+        # return ConcatDataset(datasets)
         return LinemodfromJson(config.DATA_ROOT, config.JSON_PATH)

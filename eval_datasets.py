@@ -8,6 +8,7 @@ from configs.default import get_cfg_defaults
 from datasets import dataset_dict
 from RelPoseRepo.pose import PoseRecover
 from utils.metrics import relative_pose_error, rotation_angular_error, error_auc
+from utils.reprojection import reprojection_error
 
 
 def main(args):
@@ -20,7 +21,7 @@ def main(args):
         data_root = config.DATASET.DATA_ROOT
     
     build_fn = dataset_dict[args.task][args.dataset]
-    testset = build_fn('train', config)
+    testset = build_fn('test', config)
     testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=True)
 
     device = args.device
@@ -29,6 +30,7 @@ def main(args):
     
     R_errs, t_errs = [], []
     R_gts, t_gts = [], []
+    repr_errs, ts_errs = [], []
     for i, data in enumerate(tqdm(testloader)):
         # if i > 10:
         #     break
@@ -58,12 +60,12 @@ def main(args):
         T[:3, 3] = data['translation'][0]
         T = T.numpy()
         R, t, points0, points1 = poseRec.recover(image0, image1, K0, K1, bbox0, bbox1, mask0, mask1, depth0, depth1)
-        plt.imshow(data['images'][0, 0].permute(1, 2, 0))
-        plt.scatter(points0[:, 0], points0[:, 1])
-        plt.show()
-        plt.imshow(data['images'][0, 1].permute(1, 2, 0))
-        plt.scatter(points1[:, 0], points1[:, 1])
-        plt.show()
+        # plt.imshow(data['images'][0, 0].permute(1, 2, 0))
+        # plt.scatter(points0[:, 0], points0[:, 1])
+        # plt.show()
+        # plt.imshow(data['images'][0, 1].permute(1, 2, 0))
+        # plt.scatter(points1[:, 0], points1[:, 1])
+        # plt.show()
         # break
         # # R_s, t_s, points0, points1 = poseRec.recover(image0, image1, K0, K1, bbox0, bbox1, mask0, mask1)
         # pts3D0, pts3D1 = data['objCorners'][0]
@@ -118,6 +120,12 @@ def main(args):
         t_gt = torch.tensor(T[:3, 3]).norm(2)
         t_gts.append(t_gt)
 
+        if args.depth:
+            repr_err = reprojection_error(R, t, T[:3, :3], T[:3, 3], K=K1, W=image1.shape[-1], H=image1.shape[-2])
+            repr_errs.append(repr_err)
+            t = np.nan_to_num(t)
+            ts_errs.append(torch.tensor(T[:3, 3] - t).norm(2))
+
     # pose auc
     angular_thresholds = [5, 10, 20]
     pose_errors = np.max(np.stack([R_errs, t_errs]), axis=0)
@@ -130,8 +138,11 @@ def main(args):
     print(f'rotation_err_avg:\t{R_errs.mean():.2f}')
     print(f'rotation_err_med:\t{R_errs.median():.2f}')
     print(f'rotation_acc_30d:\t{(R_errs < 30).float().mean():.4f}')
-    print(f'translation_err_avg:\t{t_errs.mean():.2f}')
-    print(f'translation_err_med:\t{t_errs.median():.2f}')
+    print(f'rotation_acc_15d:\t{(R_errs < 15).float().mean():.4f}')
+    print(f'trans_ang_err_avg:\t{t_errs.mean():.2f}')
+    print(f'trans_ang_err_med:\t{t_errs.median():.2f}')
+    print(f'trans_ang_acc_30d:\t{(t_errs < 30).float().mean():.4f}')
+    print(f'trans_ang_acc_15d:\t{(t_errs < 15).float().mean():.4f}')
     
     R_gts = torch.tensor(R_gts).rad2deg()
     t_gts = torch.tensor(t_gts)
@@ -140,6 +151,13 @@ def main(args):
     print(f'rel_translation_avg:\t{t_gts.mean():.2f}')
     print(f'rel_translation_max:\t{t_gts.max():.2f}')
 
+    if args.depth:
+        repr_errs = np.array(repr_errs)
+        ts_errs = torch.tensor(ts_errs)
+        print(f'reproject_errors:\t{repr_errs.mean():.4f}')
+        print(f'trans_len_err_avg:\t{ts_errs.mean():.4f}')
+        print(f'trans_len_err_med:\t{ts_errs.median():.4f}')
+        print(f'trans_len_err_10cm:\t{(ts_errs < 0.1).float().mean():.4f}')
 
 def get_parser():
     parser = argparse.ArgumentParser()
