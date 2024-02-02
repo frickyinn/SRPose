@@ -9,3 +9,7 @@ preprocess_megadepth.py
 *.ckpt
 test.py
 /RelPoseRepo
+eval_regressor.py
+__eval_baselines.py
+/assets/megadepth_test_new
+/configs/megadepth_new.yaml

@@ -202,6 +202,15 @@ class HO3DfromJson(Dataset):
         with open(json_path, 'r') as f:
             self.scene_info = json.load(f)
 
+        self.obj_names = [
+            '003_cracker_box',
+            '006_mustard_bottle',
+            '011_banana',
+            '025_mug',
+            '037_scissors'
+        ]
+        self.object_points = {obj: np.loadtxt(self.data_root / 'models' / obj / 'points.xyz')  for obj in self.obj_names}
+
     def _load_color(self, path):
         color = cv2.imread(path)
         color = cv2.cvtColor(color, cv2.COLOR_BGR2RGB)
@@ -265,7 +274,8 @@ class HO3DfromJson(Dataset):
             'intrinsics': intrinsics,
             'bboxes': bboxes,
             'objCorners': objCorners,
-            'objName': info['objName']
+            'objName': info['objName'][0],
+            'point_cloud': self.object_points[info['objName'][0]]
         }
     
 

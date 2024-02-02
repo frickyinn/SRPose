@@ -118,8 +118,8 @@ class PL_LightPose(L.LightningModule):
         return loss, loss_r, loss_ta, loss_t, loss_tn, r_err, ta_err, t_err
 
     def predict_one_data(self, data, device='cuda'):
-        images = data['images'][None].to(device)
-        intrinsics = data['intrinsics'][None].to(device)
+        images = data['images'].to(device)
+        intrinsics = data['intrinsics'].to(device)
 
         image0 = images[:, 0, ...]
         image1 = images[:, 1, ...]
@@ -129,14 +129,14 @@ class PL_LightPose(L.LightningModule):
             feats1 = self.extractor({'image': image1})
 
         if 'scales' in data:
-            scales = data['scales'][None].to(device)
+            scales = data['scales'].to(device)
             feats0['keypoints'] *= scales[:, 0].unsqueeze(1)
             feats1['keypoints'] *= scales[:, 1].unsqueeze(1)
 
         if self.hparams.task == 'scene':
             pred_r, pred_t = self.module({'image0': {**feats0, 'intrinsics': intrinsics[:, 0]}, 'image1': {**feats1, 'intrinsics': intrinsics[:, 1]}})
         elif self.hparams.task == 'object':
-            bboxes = data['bboxes'][None].to(device)
+            bboxes = data['bboxes'].to(device)
             pred_r, pred_t = self.module({'image0': {**feats0, 'intrinsics': intrinsics[:, 0], 'bbox': bboxes[:, 0]}, 'image1': {**feats1, 'intrinsics': intrinsics[:, 1]}})
 
         return pred_r[0], pred_t[0]

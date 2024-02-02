@@ -101,8 +101,16 @@ class ScanNetDataset(Dataset):
         image1 = cv2.cvtColor(image1, cv2.COLOR_BGR2RGB)
         # image1 = self.augment(image1)
         image1 = torch.from_numpy(image1).permute(2, 0, 1).float() / 255.
-
         images = torch.stack([image0, image1], dim=0)
+
+        depth0 = cv2.imread(osp.join(self.root_dir, scene_name, 'depth', f'{stem_name_0}.png'), cv2.IMREAD_UNCHANGED)
+        depth0 = depth0 / 1000
+        depth0 = torch.from_numpy(depth0).float()
+
+        depth1 = cv2.imread(osp.join(self.root_dir, scene_name, 'depth', f'{stem_name_1}.png'), cv2.IMREAD_UNCHANGED)
+        depth1 = depth1 / 1000
+        depth1 = torch.from_numpy(depth1).float()
+        depths = torch.stack([depth0, depth1], dim=0)
 
         # # read the depthmap which is stored as (480, 640)
         # if self.mode in ['train', 'val']:
@@ -138,6 +146,7 @@ class ScanNetDataset(Dataset):
 
         data = {
             'images': images,
+            'depths': depths,
             'rotation': T_0to1[:3, :3],
             'translation': T_0to1[:3, 3],
             'intrinsics': intrinsics,
