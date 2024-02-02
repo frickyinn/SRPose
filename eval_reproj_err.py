@@ -18,21 +18,24 @@ def main(args):
     config = get_cfg_defaults()
     config.merge_from_file(args.config)
 
+    task = config.DATASET.TASK
+    dataset = config.DATASET.DATA_SOURCE
+
     # seed = config.RANDOM_SEED
     # seed_torch(seed)
-    try:
-        data_root = config.DATASET.TEST.DATA_ROOT
-    except:
-        data_root = config.DATASET.DATA_ROOT
+    # try:
+    #     data_root = config.DATASET.TEST.DATA_ROOT
+    # except:
+    #     data_root = config.DATASET.DATA_ROOT
 
     test_num_keypoints = 2048
     
-    build_fn = dataset_dict[args.task][args.dataset]
+    build_fn = dataset_dict[task][dataset]
     testset = build_fn('test', config)
     # testset = Linemod(config.DATASET.DATA_ROOT, 'test', 2, config.DATASET.MIN_VISIBLE_FRACT, config.DATASET.MAX_ANGLE_ERROR)
     testloader = torch.utils.data.DataLoader(testset, batch_size=1)
 
-    pl_lightpose = PL_LightPose.load_from_checkpoint(args.resume)
+    pl_lightpose = PL_LightPose.load_from_checkpoint(args.ckpt_path)
     pl_lightpose.extractor = SuperPoint(max_num_keypoints=test_num_keypoints, detection_threshold=0.0).eval().cuda()
     pl_lightpose.module = pl_lightpose.module.eval().cuda()
 
@@ -86,10 +89,10 @@ def main(args):
 def get_parser():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--task', type=str, help='scene | object', required=True)
-    parser.add_argument('--dataset', type=str, help='matterport | megadepth | scannet | bop', required=True)
-    parser.add_argument('--config', type=str, help='.yaml configure file path', required=True)
-    parser.add_argument('--resume', type=str, required=True)
+    # parser.add_argument('--task', type=str, help='scene | object', required=True)
+    # parser.add_argument('--dataset', type=str, help='matterport | megadepth | scannet | bop', required=True)
+    parser.add_argument('config', type=str, help='.yaml configure file path', required=True)
+    parser.add_argument('--ckpt_path', type=str, required=True)
     # parser.add_argument('--method', type=str, help='superglue | lightglue | loftr', required=True)
 
     # parser.add_argument('--world_size', type=int, default=2)

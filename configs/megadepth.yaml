@@ -1,4 +1,5 @@
 DATASET:
+  TASK: "scene"
   DATA_SOURCE: "megedepth"
 
   TRAIN:

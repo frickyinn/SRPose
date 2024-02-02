@@ -1,5 +1,6 @@
 import torch
-import torch.nn.functional as F
+import numpy as np
+# import torch.nn.functional as F
 
 
 # def recover_pose(essential_mat, t_scale, r_sign):
@@ -104,3 +105,19 @@ def rotation_matrix_from_quaternion(quaternion):
     matrix = torch.cat((row0.view(batch, 1, 3), row1.view(batch,1,3), row2.view(batch,1,3)),1) #batch*3*3
     
     return matrix
+
+
+def correct_intrinsic_scale(K, scale_x, scale_y):
+    '''Given an intrinsic matrix (3x3) and two scale factors, returns the new intrinsic matrix corresponding to
+    the new coordinates x' = scale_x * x; y' = scale_y * y
+    Source: https://dsp.stackexchange.com/questions/6055/how-does-resizing-an-image-affect-the-intrinsic-camera-matrix
+    '''
+
+    transform = np.eye(3)
+    transform[0, 0] = scale_x
+    transform[0, 2] = scale_x / 2 - 0.5
+    transform[1, 1] = scale_y
+    transform[1, 2] = scale_y / 2 - 0.5
+    Kprime = transform @ K
+
+    return Kprime

@@ -2,6 +2,7 @@ MODEL:
   NUM_KEYPOINTS: 1024
 
 DATASET:
+  TASK: 'object'
   DATA_SOURCE: 'ho3d'
   DATA_ROOT: 'data/ho3d'
   JSON_PATH: 'assets/ho3d_test_3000/ho3d_test.json'

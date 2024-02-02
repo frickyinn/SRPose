@@ -13,6 +13,9 @@ def main(args):
     config = get_cfg_defaults()
     config.merge_from_file(args.config)
 
+    task = config.DATASET.TASK
+    dataset = config.DATASET.DATA_SOURCE
+
     batch_size = config.TRAINER.BATCH_SIZE
     num_workers = config.TRAINER.NUM_WORKERS
     pin_memory = config.TRAINER.PIN_MEMORY
@@ -28,11 +31,11 @@ def main(args):
     seed = config.RANDOM_SEED
     seed_torch(seed)
         
-    build_fn = dataset_dict[args.task][args.dataset]
+    build_fn = dataset_dict[task][dataset]
     trainset = build_fn('train', config)
     validset = build_fn('val', config)
 
-    if args.dataset == 'scannet' or args.dataset == 'megadepth' or args.dataset == 'linemod' or args.dataset == 'ho3d':
+    if dataset == 'scannet' or dataset == 'megadepth' or dataset == 'linemod' or dataset == 'ho3d':
         sampler = RandomConcatSampler(
             trainset,
             n_samples_per_subset=n_samples_per_subset,
@@ -48,7 +51,7 @@ def main(args):
 
     if args.weights is None:
         pl_lightpose = PL_LightPose(
-            task=args.task,
+            task=task,
             lr=lr,
             epochs=epochs,
             pct_start=pct_start,
@@ -59,7 +62,7 @@ def main(args):
     else:
         pl_lightpose = PL_LightPose.load_from_checkpoint(
             checkpoint_path=args.weights,
-            task=args.task,
+            task=task,
             lr=lr,
             epochs=epochs,
             pct_start=pct_start,
@@ -85,9 +88,9 @@ def main(args):
 def get_parser():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--task', type=str, help='scene | object', choices={'scene', 'object'}, required=True)
-    parser.add_argument('--dataset', type=str, help='matterport | megadepth | scannet | bop | ho3d', required=True)
-    parser.add_argument('--config', type=str, help='.yaml configure file path', required=True)
+    # parser.add_argument('--task', type=str, help='scene | object', choices={'scene', 'object'}, required=True)
+    # parser.add_argument('--dataset', type=str, help='matterport | megadepth | scannet | bop | ho3d', required=True)
+    parser.add_argument('config', type=str, help='.yaml configure file path', required=True)
     parser.add_argument('--resume', type=str, default=None)
     parser.add_argument('--weights', type=str, default=None)
 

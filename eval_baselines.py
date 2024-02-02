@@ -17,13 +17,16 @@ def main(args):
     config = get_cfg_defaults()
     config.merge_from_file(args.config)
 
+    task = config.DATASET.TASK
+    dataset = config.DATASET.DATA_SOURCE
+
     try:
         data_root = config.DATASET.TEST.DATA_ROOT
     except:
         data_root = config.DATASET.DATA_ROOT
     
-    build_fn = dataset_dict[args.task][args.dataset]
-    testset = build_fn('test', config)
+    build_fn = dataset_dict[task][dataset]
+    testset = build_fn('val', config)
     testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=True)
 
     device = args.device
@@ -35,11 +38,11 @@ def main(args):
     repr_errs, ts_errs = [], []
     adds, adis, prjs = [], [], []
     for i, data in enumerate(tqdm(testloader)):
-        # if i >= 100:
-        #     break
+        if i >= 1500:
+            break
         # if data['objName'][0][0] != '011_banana':
         #     continuepr
-        if args.dataset == 'megadepth':
+        if dataset == 'megadepth':
             # load each image as a torch.Tensor on GPU with shape (3,H,W), normalized in [0,1]
             image0 = load_image(os.path.join(data_root, data['pair_names'][0][0])).to(device)
             image1 = load_image(os.path.join(data_root, data['pair_names'][1][0])).to(device)
@@ -51,7 +54,7 @@ def main(args):
             image0, image1 = data['images'][0].to(device)
 
         bbox0, bbox1 = None, None
-        if args.task == 'object':
+        if task == 'object':
             bbox0, bbox1 = data['bboxes'][0]
             x1, y1, x2, y2 = bbox0
             u1, v1, u2, v2 = bbox1
@@ -140,7 +143,7 @@ def main(args):
             t = np.nan_to_num(t)
             ts_errs.append(torch.tensor(T[:3, 3] - t).norm(2))
 
-            if args.task == 'object':
+            if task == 'object':
                 if np.isnan(R).any():
                     adds.append(1.)
                     adis.append(1.)
@@ -183,7 +186,7 @@ def main(args):
         print(f'trans_len_err_med:\t{ts_errs.median():.4f}')
         print(f'trans_len_err_10cm:\t{(ts_errs < 0.1).float().mean():.4f}')
 
-        if args.task == 'object':
+        if task == 'object':
             print(f'ADD:\t\t{compute_continuous_auc(adds, np.linspace(0.0, 0.1, 1000)):.4f}')
             print(f'ADD-S\t\t{compute_continuous_auc(adis, np.linspace(0.0, 0.1, 1000)):.4f}')
             print(f'Proj.2D:\t{compute_continuous_auc(prjs, np.linspace(0.0, 40.0, 1000)):.4f}')
@@ -194,15 +197,15 @@ def main(args):
 def get_parser():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--task', type=str, help='scene | object', choices={'scene', 'object'}, required=True)
-    parser.add_argument('--dataset', type=str, help='matterport | megadepth | scannet | bop', required=True)
-    parser.add_argument('--config', type=str, help='.yaml configure file path', required=True)
+    # parser.add_argument('--task', type=str, help='scene | object', choices={'scene', 'object'}, required=True)
+    # parser.add_argument('--dataset', type=str, help='matterport | megadepth | scannet | bop', required=True)
+    parser.add_argument('config', type=str, help='.yaml configure file path')
 
-    parser.add_argument('--matcher', type=str, required=True)
+    parser.add_argument('matcher', type=str)
     parser.add_argument('--device', type=str, default='cuda:0')
 
     # parser.add_argument('--resize', action='store_true')
-    parser.add_argument('--resize', type=int, default=840)
+    parser.add_argument('--resize', type=int, default=None)
     # parser.add_argument('--w_new', type=int, default=640)
     # parser.add_argument('--h_new', type=int, default=480)
     parser.add_argument('--mask', action='store_true')

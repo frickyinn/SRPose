@@ -1,0 +1,14 @@
+DATASET:
+  TASK: 'scene'
+  DATA_SOURCE: 'mapfree'
+  DATA_ROOT: 'data/mapfree/'
+  ESTIMATED_DEPTH: None  # To load estimated depth map, provide the suffix to the depth files, e.g. 'dptnyu', 'dptkiti'
+
+TRAINER:
+  EPOCHS: 200
+  LEARNING_RATE: 0.0001
+  BATCH_SIZE: 32
+  NUM_WORKERS: 8
+  PCT_START: 0.3
+  # N_SAMPLES_PER_SUBSET: 200
+  
