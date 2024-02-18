@@ -12,6 +12,8 @@ from RelPoseRepo.pose import PoseRecover
 from utils.metrics import relative_pose_error, rotation_angular_error, error_auc, reproj, add, adi, compute_continuous_auc
 from utils.reprojection import reprojection_error
 
+import pandas as pd
+
 
 def main(args):
     config = get_cfg_defaults()
@@ -26,8 +28,8 @@ def main(args):
         data_root = config.DATASET.DATA_ROOT
     
     build_fn = dataset_dict[task][dataset]
-    testset = build_fn('val', config)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=True)
+    testset = build_fn('test', config)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=1)
 
     device = args.device
     img_resize = args.resize
@@ -37,8 +39,9 @@ def main(args):
     R_gts, t_gts = [], []
     repr_errs, ts_errs = [], []
     adds, adis, prjs = [], [], []
+    io_times, ex_times, com_times, re_times = [], [], [], []
     for i, data in enumerate(tqdm(testloader)):
-        if i >= 1500:
+        if i >= 100:
             break
         # if data['objName'][0][0] != '011_banana':
         #     continuepr
@@ -74,7 +77,11 @@ def main(args):
         T[:3, :3] = data['rotation'][0]
         T[:3, 3] = data['translation'][0]
         T = T.numpy()
-        R, t, points0, points1 = poseRec.recover(image0, image1, K0, K1, bbox0, bbox1, mask0, mask1, depth0, depth1)
+        R, t, points0, points1, io_time, ex_time, com_time, re_time = poseRec.recover(image0, image1, K0, K1, bbox0, bbox1, mask0, mask1, depth0, depth1)
+        io_times.append(io_time)
+        ex_times.append(ex_time)
+        com_times.append(com_time)
+        re_times.append(re_time)
         # print(rotation_angular_error(torch.from_numpy(T[:3, :3])[None], torch.eye(3)[None]).rad2deg())
         # print(K0, K1, sep='\n')
         # plt.imshow(image0.permute(1, 2, 0).cpu())
@@ -153,6 +160,18 @@ def main(args):
                     adis.append(adi(R, t, T[:3, :3], T[:3, 3], data['point_cloud'][0].numpy()))
                     prjs.append(reproj(K1.numpy(), R, t, T[:3, :3], T[:3, 3], data['point_cloud'][0].numpy()))
 
+
+    io_times = np.array(io_times) * 1000
+    ex_times = np.array(ex_times) * 1000
+    com_times = np.array(com_times) * 1000
+    re_times = np.array(re_times) * 1000
+
+    print(f'{np.mean(io_times):.4f}')
+    print(f'{np.mean(ex_times):.4f}')
+    print(f'{np.mean(com_times):.4f}')
+    print(f'{np.mean(re_times):.4f}')
+    # print(f'{np.mean(io_times+ex_times+com_times+re_times):.4f}')
+
     # pose auc
     angular_thresholds = [5, 10, 20]
     pose_errors = np.max(np.stack([R_errs, t_errs]), axis=0)
@@ -190,6 +209,13 @@ def main(args):
             print(f'ADD:\t\t{compute_continuous_auc(adds, np.linspace(0.0, 0.1, 1000)):.4f}')
             print(f'ADD-S\t\t{compute_continuous_auc(adis, np.linspace(0.0, 0.1, 1000)):.4f}')
             print(f'Proj.2D:\t{compute_continuous_auc(prjs, np.linspace(0.0, 40.0, 1000)):.4f}')
+
+    pd.DataFrame({
+        'R_errs': R_errs,
+        't_errs': t_errs,
+        'R_gts': R_gts,
+        't_gts': t_gts,
+    }).to_csv(f'results/{args.matcher}_{args.config.split("/")[1].split(".")[0]}.csv')
 
     return R_errs, t_errs, R_gts, t_gts
 

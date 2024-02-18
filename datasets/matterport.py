@@ -73,9 +73,9 @@ class Matterport3D(Dataset):
         # if self.is_training and np.random.rand() > 0.5:
         #     images = images[[1, 0]]
 
-        #     rotation = rotation.mT
-        #     translation = -rotation @ translation.unsqueeze(-1)
-        #     translation = translation[:, 0]
+        rotation = rotation.mT
+        translation = -rotation @ translation.unsqueeze(-1)
+        translation = translation[:, 0]
 
         return {
             'images': images,

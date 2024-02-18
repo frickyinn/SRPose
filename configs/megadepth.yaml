@@ -1,6 +1,6 @@
 DATASET:
   TASK: "scene"
-  DATA_SOURCE: "megedepth"
+  DATA_SOURCE: "megadepth"
 
   TRAIN:
     DATA_ROOT: "data/megadepth/train"

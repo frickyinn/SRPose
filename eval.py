@@ -16,7 +16,7 @@ def main(args):
     dataset = config.DATASET.DATA_SOURCE
 
     batch_size = config.TRAINER.BATCH_SIZE
-    batch_size = 8
+    batch_size = 32
     num_workers = config.TRAINER.NUM_WORKERS
     pin_memory = config.TRAINER.PIN_MEMORY
     
@@ -26,7 +26,7 @@ def main(args):
     # seed_torch(seed)
     
     build_fn = dataset_dict[task][dataset]
-    testset = build_fn('val', config)
+    testset = build_fn('test', config)
     testloader = DataLoader(testset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory)
 
     pl_lightpose = PL_LightPose.load_from_checkpoint(args.ckpt_path)

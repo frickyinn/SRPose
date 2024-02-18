@@ -7,6 +7,8 @@ from lightglue import SuperPoint
 from utils import rotation_angular_error, translation_angular_error, error_auc
 from model import LightPose
 
+import time
+
 
 class PL_LightPose(L.LightningModule):
     def __init__(
@@ -118,15 +120,20 @@ class PL_LightPose(L.LightningModule):
         return loss, loss_r, loss_ta, loss_t, loss_tn, r_err, ta_err, t_err
 
     def predict_one_data(self, data, device='cuda'):
+        st_time = time.time()
         images = data['images'].to(device)
         intrinsics = data['intrinsics'].to(device)
 
         image0 = images[:, 0, ...]
         image1 = images[:, 1, ...]
 
+        io_time = time.time()
+
         with torch.no_grad():
             feats0 = self.extractor({'image': image0})
             feats1 = self.extractor({'image': image1})
+        
+        ex_time = time.time()
 
         if 'scales' in data:
             scales = data['scales'].to(device)
@@ -139,7 +146,10 @@ class PL_LightPose(L.LightningModule):
             bboxes = data['bboxes'].to(device)
             pred_r, pred_t = self.module({'image0': {**feats0, 'intrinsics': intrinsics[:, 0], 'bbox': bboxes[:, 0]}, 'image1': {**feats1, 'intrinsics': intrinsics[:, 1]}})
 
-        return pred_r[0], pred_t[0]
+        com_time = time.time()
+
+        # return pred_r[0], pred_t[0], io_time-st_time, ex_time-io_time, com_time-ex_time
+        return pred_r[0], pred_t[0], feats0, feat1
 
     def _shared_on_epoch_end(self, mode):
         r_errors = torch.hstack(self.r_errors[mode]).rad2deg()
@@ -160,6 +170,7 @@ class PL_LightPose(L.LightningModule):
             f'{mode}_t_avg': t_errors.mean(),
             f'{mode}_t_med': t_errors.median(),
             f'{mode}_t_10cm': (t_errors < 0.1).float().mean(),
+            f'{mode}_t_1m': (t_errors < 1.0).float().mean(),
         }, sync_dist=True)
 
         self.r_errors[mode].clear()

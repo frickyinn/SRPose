@@ -90,7 +90,7 @@ def get_parser():
 
     # parser.add_argument('--task', type=str, help='scene | object', choices={'scene', 'object'}, required=True)
     # parser.add_argument('--dataset', type=str, help='matterport | megadepth | scannet | bop | ho3d', required=True)
-    parser.add_argument('config', type=str, help='.yaml configure file path', required=True)
+    parser.add_argument('config', type=str, help='.yaml configure file path')
     parser.add_argument('--resume', type=str, default=None)
     parser.add_argument('--weights', type=str, default=None)
 
