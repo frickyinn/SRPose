@@ -181,6 +181,7 @@ class CrossBlock(nn.Module):
             nn.GELU(),
             nn.Linear(2 * embed_dim, embed_dim),
         )
+        self.reg_attn = nn.Identity()
 
     def map_(self, func: Callable, x0: torch.Tensor, x1: torch.Tensor):
         return func(x0), func(x1)
@@ -204,6 +205,7 @@ class CrossBlock(nn.Module):
         assert len(match.shape) == 3
         match = match.unsqueeze(1)
         sim = sim * match
+        sim = self.reg_attn(sim)
         
         attn01 = F.softmax(sim, dim=-1)
         attn10 = F.softmax(sim.transpose(-2, -1).contiguous(), dim=-1)
@@ -342,6 +344,9 @@ class LightPose(nn.Module):
             nn.Linear(conf.input_dim//2, 3),
         )
 
+        self.reg_kpts0 = nn.Identity()
+        self.reg_kpts1 = nn.Identity()
+
         # self.regressor = nn.Sequential(
         #     nn.Linear(conf.input_dim*2, conf.input_dim), 
         #     nn.ReLU(), 
@@ -471,6 +476,9 @@ class LightPose(nn.Module):
 
         desc0 = self.input_proj(desc0)
         desc1 = self.input_proj(desc1)
+
+        kpts0 = self.reg_kpts0(kpts0)
+        kpts1 = self.reg_kpts1(kpts1)
 
         # cache positional embeddings
         kpts0 = normalize_keypoints(kpts0, intrinsic0)

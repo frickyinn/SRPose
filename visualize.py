@@ -1,4 +1,5 @@
 import argparse
+import cv2
 import torch
 from torch.utils.data import DataLoader
 import lightning as L
@@ -30,6 +31,36 @@ class FeatureExtractor(torch.nn.Module):
         return self._features
 
 
+def project_3D_points(K, pts3d):
+    coord_change_mat = torch.tensor([[1., 0., 0.], [0, -1., 0.], [0., 0., -1.]])
+
+    pts3d = pts3d @ coord_change_mat.mT
+    proj_pts = pts3d @ K.mT.float()
+    proj_pts = torch.stack([proj_pts[:,0]/proj_pts[:,2], proj_pts[:,1]/proj_pts[:,2]], axis=1)
+
+    return proj_pts
+
+
+def plot_3D_box(proj_pts, image, color, thickness=4):
+    image = image.copy()
+    cv2.line(image, proj_pts[0], proj_pts[1], color, thickness)
+    cv2.line(image, proj_pts[0], proj_pts[2], color, thickness)
+    cv2.line(image, proj_pts[1], proj_pts[3], color, thickness)
+    cv2.line(image, proj_pts[2], proj_pts[3], color, thickness)
+
+    cv2.line(image, proj_pts[4], proj_pts[5], color, thickness)
+    cv2.line(image, proj_pts[4], proj_pts[6], color, thickness)
+    cv2.line(image, proj_pts[5], proj_pts[7], color, thickness)
+    cv2.line(image, proj_pts[6], proj_pts[7], color, thickness)
+
+    cv2.line(image, proj_pts[0], proj_pts[4], color, thickness)
+    cv2.line(image, proj_pts[1], proj_pts[5], color, thickness)
+    cv2.line(image, proj_pts[2], proj_pts[6], color, thickness)
+    cv2.line(image, proj_pts[3], proj_pts[7], color, thickness)
+    
+    return image
+
+
 def get_model(args):
     config = get_cfg_defaults()
     config.merge_from_file(args.config)
@@ -40,7 +71,7 @@ def get_model(args):
 
     build_fn = dataset_dict[task][dataset]
     testset = build_fn('test', config)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=1)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=True)
 
     pl_lightpose = PL_LightPose.load_from_checkpoint(args.ckpt_path)
     pl_lightpose.extractor = SuperPoint(max_num_keypoints=test_num_keypoints, detection_threshold=0.0).eval()

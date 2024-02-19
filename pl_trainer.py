@@ -148,8 +148,8 @@ class PL_LightPose(L.LightningModule):
 
         com_time = time.time()
 
-        # return pred_r[0], pred_t[0], io_time-st_time, ex_time-io_time, com_time-ex_time
-        return pred_r[0], pred_t[0], feats0, feat1
+        return pred_r[0], pred_t[0], io_time-st_time, ex_time-io_time, com_time-ex_time
+        
 
     def _shared_on_epoch_end(self, mode):
         r_errors = torch.hstack(self.r_errors[mode]).rad2deg()

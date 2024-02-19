@@ -414,17 +414,17 @@ class LinemodfromJson(Dataset):
         image1 = (torch.tensor(image1).float() / 255.0).permute(2, 0, 1)
         images = torch.stack([image0, image1], dim=0)
 
-        # mask0 = self._load_mask(str(self.data_root / pair_names[0]))
-        # mask0 = torch.tensor(mask0).bool()
-        # mask1 = self._load_mask(str(self.data_root / pair_names[1]))
-        # mask1 = torch.tensor(mask1).bool()
-        # masks = torch.stack([mask0, mask1], dim=0)
+        mask0 = self._load_mask(str(self.data_root / pair_names[0]))
+        mask0 = torch.tensor(mask0).bool()
+        mask1 = self._load_mask(str(self.data_root / pair_names[1]))
+        mask1 = torch.tensor(mask1).bool()
+        masks = torch.stack([mask0, mask1], dim=0)
 
-        # depth0 = self._load_depth(str(self.data_root / pair_names[0]))
-        # depth0 = torch.tensor(depth0) * info['depth_scale'][0]
-        # depth1 = self._load_depth(str(self.data_root / pair_names[1]))
-        # depth1 = torch.tensor(depth1) * info['depth_scale'][1]
-        # depths = torch.stack([depth0, depth1], dim=0) / 1000.
+        depth0 = self._load_depth(str(self.data_root / pair_names[0]))
+        depth0 = torch.tensor(depth0) * info['depth_scale'][0]
+        depth1 = self._load_depth(str(self.data_root / pair_names[1]))
+        depth1 = torch.tensor(depth1) * info['depth_scale'][1]
+        depths = torch.stack([depth0, depth1], dim=0) / 1000.
 
         rotation = torch.tensor(info['rotation']).reshape(3, 3)
         translation = torch.tensor(info['translation'])
@@ -433,18 +433,18 @@ class LinemodfromJson(Dataset):
 
         obj_id = str(int(pair_names[0].split('/')[1]))
         diameter = self.object_diameters[obj_id]
-        # point_cloud = torch.from_numpy(self.object_points[obj_id]) / 1000.
+        point_cloud = torch.from_numpy(self.object_points[obj_id]) / 1000.
 
         return {
             'images': images,
-            # 'masks': masks,
-            # 'depths': depths,
+            'masks': masks,
+            'depths': depths,
             'rotation': rotation,
             'translation': translation,
             'intrinsics': intrinsics,
             'bboxes': bboxes,
             'diameter': diameter,
-            # 'point_cloud': point_cloud,
+            'point_cloud': point_cloud,
         }
 
 

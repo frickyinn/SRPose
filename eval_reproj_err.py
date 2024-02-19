@@ -51,8 +51,8 @@ def main(args):
     # with profile(activities=[ProfilerActivity.CUDA, ProfilerActivity.CPU], record_shapes=True) as prof:
     io_times, ex_times, com_times = [], [], []
     for i, data in enumerate(tqdm(testloader)):
-        if i >= 100:
-            break
+        # if i >= 100:
+        #     break
         image0, image1 = data['images'][0]
         K0, K1 = data['intrinsics'][0]
         T = torch.eye(4)
