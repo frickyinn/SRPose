@@ -16,7 +16,7 @@ def main(args):
     dataset = config.DATASET.DATA_SOURCE
 
     batch_size = config.TRAINER.BATCH_SIZE
-    batch_size = 32
+    # batch_size = 32
     num_workers = config.TRAINER.NUM_WORKERS
     pin_memory = config.TRAINER.PIN_MEMORY
     

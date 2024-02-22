@@ -25,6 +25,7 @@ def main(args):
 
     task = config.DATASET.TASK
     dataset = config.DATASET.DATA_SOURCE
+    device = args.device
 
     # seed = config.RANDOM_SEED
     # seed_torch(seed)
@@ -33,7 +34,7 @@ def main(args):
     # except:
     #     data_root = config.DATASET.DATA_ROOT
 
-    test_num_keypoints = 2048
+    test_num_keypoints = test_num_keypoints = config.MODEL.TEST_NUM_KEYPOINTS
     
     build_fn = dataset_dict[task][dataset]
     testset = build_fn('test', config)
@@ -41,11 +42,11 @@ def main(args):
     testloader = torch.utils.data.DataLoader(testset, batch_size=1)
 
     pl_lightpose = PL_LightPose.load_from_checkpoint(args.ckpt_path)
-    pl_lightpose.extractor = SuperPoint(max_num_keypoints=test_num_keypoints, detection_threshold=0.0).eval().cuda()
-    pl_lightpose.module = pl_lightpose.module.eval().cuda()
+    pl_lightpose.extractor = SuperPoint(max_num_keypoints=test_num_keypoints, detection_threshold=0.0).eval().to(device)
+    pl_lightpose.module = pl_lightpose.module.eval().to(device)
 
     repr_errs = []
-    adds, adis, prjs = [], [], []
+    adds, adis = [], []
     R_errs, t_errs = [], []
     R_gts, t_gts = [], []
     # with profile(activities=[ProfilerActivity.CUDA, ProfilerActivity.CPU], record_shapes=True) as prof:
@@ -82,7 +83,7 @@ def main(args):
         if 'point_cloud' in data:
             adds.append(add(R_est.cpu().numpy(), t_est.cpu().numpy(), T[:3, :3], T[:3, 3], data['point_cloud'][0].numpy()))
             adis.append(adi(R_est.cpu().numpy(), t_est.cpu().numpy(), T[:3, :3], T[:3, 3], data['point_cloud'][0].numpy()))
-            prjs.append(reproj(K1.numpy(), R_est.cpu().numpy(), t_est.cpu().numpy(), T[:3, :3], T[:3, 3], data['point_cloud'][0].numpy()))
+            # prjs.append(reproj(K1.numpy(), R_est.cpu().numpy(), t_est.cpu().numpy(), T[:3, :3], T[:3, 3], data['point_cloud'][0].numpy()))
 
     io_times = np.array(io_times) * 1000
     ex_times = np.array(ex_times) * 1000
@@ -98,7 +99,7 @@ def main(args):
     if task == 'object':
         print(f'ADD:\t\t{compute_continuous_auc(adds, np.linspace(0.0, 0.1, 1000)):.4f}')
         print(f'ADD-S\t\t{compute_continuous_auc(adis, np.linspace(0.0, 0.1, 1000)):.4f}')
-        print(f'Proj.2D:\t{compute_continuous_auc(prjs, np.linspace(0.0, 40.0, 1000)):.4f}')
+        # print(f'Proj.2D:\t{compute_continuous_auc(prjs, np.linspace(0.0, 40.0, 1000)):.4f}')
 
     R_errs = torch.tensor(R_errs)
     t_errs = torch.tensor(t_errs)
@@ -128,7 +129,7 @@ def get_parser():
     # parser.add_argument('--method', type=str, help='superglue | lightglue | loftr', required=True)
 
     # parser.add_argument('--world_size', type=int, default=2)
-    # parser.add_argument('--device', type=str, default='cuda:0')
+    parser.add_argument('--device', type=str, default='cuda:0')
 
     return parser
 

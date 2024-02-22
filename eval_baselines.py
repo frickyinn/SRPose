@@ -10,7 +10,6 @@ from configs.default import get_cfg_defaults
 from datasets import dataset_dict
 from RelPoseRepo.pose import PoseRecover
 from utils.metrics import relative_pose_error, rotation_angular_error, error_auc, reproj, add, adi, compute_continuous_auc
-from utils.reprojection import reprojection_error
 
 import pandas as pd
 
@@ -37,14 +36,14 @@ def main(args):
     
     R_errs, t_errs = [], []
     R_gts, t_gts = [], []
-    repr_errs, ts_errs = [], []
+    ts_errs = []
     adds, adis, prjs = [], [], []
     io_times, ex_times, com_times, re_times = [], [], [], []
     for i, data in enumerate(tqdm(testloader)):
         if i >= 100:
             break
         # if data['objName'][0][0] != '011_banana':
-        #     continuepr
+        #     continue
         if dataset == 'megadepth':
             # load each image as a torch.Tensor on GPU with shape (3,H,W), normalized in [0,1]
             image0 = load_image(os.path.join(data_root, data['pair_names'][0][0])).to(device)
@@ -76,6 +75,7 @@ def main(args):
         T = torch.eye(4)
         T[:3, :3] = data['rotation'][0]
         T[:3, 3] = data['translation'][0]
+        # T = T.inverse()
         T = T.numpy()
         R, t, points0, points1, io_time, ex_time, com_time, re_time = poseRec.recover(image0, image1, K0, K1, bbox0, bbox1, mask0, mask1, depth0, depth1)
         io_times.append(io_time)
@@ -145,8 +145,8 @@ def main(args):
         t_gts.append(t_gt)
 
         if args.depth:
-            repr_err = reprojection_error(R, t, T[:3, :3], T[:3, 3], K=K1, W=image1.shape[-1], H=image1.shape[-2])
-            repr_errs.append(repr_err)
+            # repr_err = reprojection_error(R, t, T[:3, :3], T[:3, 3], K=K1, W=image1.shape[-1], H=image1.shape[-2])
+            # repr_errs.append(repr_err)
             t = np.nan_to_num(t)
             ts_errs.append(torch.tensor(T[:3, 3] - t).norm(2))
 
@@ -198,9 +198,9 @@ def main(args):
     print(f'rel_translation_max:\t{t_gts.max():.2f}')
 
     if args.depth:
-        repr_errs = np.array(repr_errs)
+        # repr_errs = np.array(repr_errs)
         ts_errs = torch.tensor(ts_errs)
-        print(f'reproject_errors:\t{repr_errs.mean():.4f}')
+        # print(f'reproject_errors:\t{repr_errs.mean():.4f}')
         print(f'trans_len_err_avg:\t{ts_errs.mean():.4f}')
         print(f'trans_len_err_med:\t{ts_errs.median():.4f}')
         print(f'trans_len_err_10cm:\t{(ts_errs < 0.1).float().mean():.4f}')

@@ -14,16 +14,19 @@ from utils.augment import Augmentor
 class HO3D(Dataset):
     def __init__(self, data_root, sequence_path, mode):
         self.data_root = Path(data_root)
-        self.sequence_dir = self.data_root / 'train' / sequence_path
+        mode = 'evaluation' if mode != 'train' else 'train'
+        self.sequence_dir = self.data_root / mode / sequence_path
 
         self.color_dir = self.sequence_dir / 'rgb'
         self.mask_dir = self.sequence_dir / 'seg'
+        self.depth_dir = self.sequence_dir / 'depth'
         self.meta_dir = self.sequence_dir / 'meta'
         
         self.color_paths = list(self.color_dir.iterdir())
         self.color_paths = sorted(self.color_paths)
 
         self.mask_paths = [self.mask_dir / f'{x.stem}.png' for x in self.color_paths]
+        self.depth_paths = [self.depth_dir / f'{x.stem}.png' for x in self.color_paths]
         self.meta_paths = [self.meta_dir / f'{x.stem}.pkl' for x in self.color_paths]
 
         # self.glcam_in_cvcam = torch.tensor([
@@ -36,6 +39,7 @@ class HO3D(Dataset):
 
         self.color_paths = np.array(self.color_paths)[valid.numpy()]
         self.mask_paths = np.array(self.mask_paths)[valid.numpy()]
+        self.depth_paths = np.array(self.depth_paths)[valid.numpy()]
         self.meta_paths = np.array(self.meta_paths)[valid.numpy()]
 
         self.bboxes, valid = self._load_bboxes(self.mask_paths)
@@ -45,6 +49,7 @@ class HO3D(Dataset):
         self.objNames = self.objNames[valid.numpy()]
         self.color_paths = self.color_paths[valid.numpy()]
         self.mask_paths = self.mask_paths[valid.numpy()]
+        self.depth_paths = self.depth_paths[valid.numpy()]
         self.meta_paths = self.meta_paths[valid.numpy()]
 
         assert len(self.color_paths) == self.intrinsics.shape[0]
@@ -117,11 +122,31 @@ class HO3D(Dataset):
 
         return intrinsics, extrinsics, objCorners, objNames, valid
 
+    def _load_mask(self, mask_path):
+        mask = cv2.imread(str(mask_path))
+        mask = cv2.resize(mask, (640, 480))
+        mask = mask[..., 1] == 255
+        return mask
+    
+    def _load_depth(self, depth_path):
+        depth_scale = 0.00012498664727900177
+        depth_img = cv2.imread(str(depth_path))
+
+        dpt = depth_img[:, :, 2] + depth_img[:, :, 1] * 256
+        dpt = dpt * depth_scale
+
+        return dpt
+
     def __getitem__(self, idx):
         color = cv2.imread(str(self.color_paths[idx]))
         color = cv2.cvtColor(color, cv2.COLOR_BGR2RGB)
         # color = self.augment(color)
         color = (torch.tensor(color).float() / 255.0).permute(2, 0, 1)
+
+        mask = self._load_mask(self.mask_paths[idx])
+        mask = torch.from_numpy(mask)
+        depth = self._load_depth(self.depth_paths[idx])
+        depth = torch.from_numpy(depth)
 
         bbox = self.bboxes[idx]
 
@@ -132,6 +157,8 @@ class HO3D(Dataset):
 
         return {
             'color': color,
+            'mask': mask,
+            'depth': depth,
             'extrinsic': extrinsic,
             'intrinsic': intrinsic,
             'objCorners': objCorners,
