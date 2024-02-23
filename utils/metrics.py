@@ -3,7 +3,7 @@ import torch
 import sklearn
 from scipy import spatial
 
-from .pose_solver import EssentialMatrixSolver
+# from .pose_solver import EssentialMatrixSolver
 
 
 def quat_degree_error(q1, q2):
@@ -107,19 +107,20 @@ def relative_pose_error(T_0to1, R, t, ignore_gt_t_thr=0.0):
     return t_err, R_err
 
 
-def compute_pose_errors(pts0, pts1, K0, K1, T_0to1, cfg):
-    solver = EssentialMatrixSolver(cfg)
-    ret = solver.estimate_pose(pts0, pts1, {'K_color0': K0, 'K_color1': K1})
+# def compute_pose_errors(pts0, pts1, K0, K1, T_0to1, cfg):
+#     # solver = EssentialMatrixSolver(cfg)
+#     # ret = solver.estimate_pose(pts0, pts1, {'K_color0': K0, 'K_color1': K1})
+#     ret = estimate_pose(pts0, pts1, K0, K1)
 
-    if np.isnan(ret[0]).any():
-        R_err = 180
-        t_err = 180
-        inliers = np.array([]).astype(bool)
-    else:
-        R, t, inliers = ret
-        t_err, R_err = relative_pose_error(T_0to1, R, t, ignore_gt_t_thr=0.0)
+#     if ret is None:
+#         R_err = 180
+#         t_err = 180
+#         inliers = np.array([]).astype(bool)
+#     else:
+#         R, t, inliers = ret
+#         t_err, R_err = relative_pose_error(T_0to1, R, t, ignore_gt_t_thr=0.0)
     
-    return R_err, t_err, inliers
+#     return R_err, t_err, inliers
 
 
 def transform_pts_Rt(pts, R, t):

@@ -4,7 +4,7 @@ import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 
 from datasets import dataset_dict, RandomConcatSampler
-from pl_trainer import PL_LightPose
+from model import PL_RelPose
 from utils import seed_torch
 from configs.default import get_cfg_defaults
 
@@ -30,7 +30,7 @@ def main(args):
 
     seed = config.RANDOM_SEED
     seed_torch(seed)
-        
+
     build_fn = dataset_dict[task][dataset]
     trainset = build_fn('train', config)
     validset = build_fn('val', config)
@@ -50,7 +50,7 @@ def main(args):
     validloader = DataLoader(validset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory)
 
     if args.weights is None:
-        pl_lightpose = PL_LightPose(
+        pl_relpose = PL_RelPose(
             task=task,
             lr=lr,
             epochs=epochs,
@@ -60,7 +60,7 @@ def main(args):
             num_keypoints=num_keypoints,
         )
     else:
-        pl_lightpose = PL_LightPose.load_from_checkpoint(
+        pl_relpose = PL_RelPose.load_from_checkpoint(
             checkpoint_path=args.weights,
             task=task,
             lr=lr,
@@ -82,7 +82,7 @@ def main(args):
         # fast_dev_run=1,
     )
     
-    trainer.fit(pl_lightpose, trainloader, validloader, ckpt_path=args.resume)
+    trainer.fit(pl_relpose, trainloader, validloader, ckpt_path=args.resume)
 
 
 def get_parser():

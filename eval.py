@@ -4,7 +4,7 @@ import lightning as L
 from lightglue import SuperPoint
 
 from datasets import dataset_dict
-from pl_trainer import PL_LightPose
+from model import PL_RelPose
 from configs.default import get_cfg_defaults
 
 
@@ -29,8 +29,8 @@ def main(args):
     testset = build_fn('test', config)
     testloader = DataLoader(testset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory)
 
-    pl_lightpose = PL_LightPose.load_from_checkpoint(args.ckpt_path)
-    pl_lightpose.extractor = SuperPoint(max_num_keypoints=test_num_keypoints, detection_threshold=0.0).eval()
+    pl_relpose = PL_RelPose.load_from_checkpoint(args.ckpt_path)
+    pl_relpose.extractor = SuperPoint(max_num_keypoints=test_num_keypoints, detection_threshold=0.0).eval()
 
     trainer = L.Trainer(
         devices=[0], 
@@ -38,7 +38,7 @@ def main(args):
         # precision="bf16-mixed",
     )
     
-    trainer.test(pl_lightpose, dataloaders=testloader)
+    trainer.test(pl_relpose, dataloaders=testloader)
 
 
 def get_parser():

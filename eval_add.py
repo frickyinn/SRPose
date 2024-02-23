@@ -4,18 +4,15 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import pandas as pd
+import time
 
 from lightglue import SuperPoint
-from pl_trainer import PL_LightPose
-from utils.reprojection import reprojection_error
+from model import PL_RelPose
+# from utils.reprojection import reprojection_error
 from datasets import dataset_dict
 from utils.metrics import reproj, add, adi, compute_continuous_auc, relative_pose_error, rotation_angular_error
 from configs.default import get_cfg_defaults
-
-from torch.profiler import profile, record_function, ProfilerActivity
-import pandas as pd
-
-import time
 
 
 @torch.no_grad()
@@ -27,13 +24,6 @@ def main(args):
     dataset = config.DATASET.DATA_SOURCE
     device = args.device
 
-    # seed = config.RANDOM_SEED
-    # seed_torch(seed)
-    # try:
-    #     data_root = config.DATASET.TEST.DATA_ROOT
-    # except:
-    #     data_root = config.DATASET.DATA_ROOT
-
     test_num_keypoints = test_num_keypoints = config.MODEL.TEST_NUM_KEYPOINTS
     
     build_fn = dataset_dict[task][dataset]
@@ -41,9 +31,9 @@ def main(args):
     # testset = Linemod(config.DATASET.DATA_ROOT, 'test', 2, config.DATASET.MIN_VISIBLE_FRACT, config.DATASET.MAX_ANGLE_ERROR)
     testloader = torch.utils.data.DataLoader(testset, batch_size=1)
 
-    pl_lightpose = PL_LightPose.load_from_checkpoint(args.ckpt_path)
-    pl_lightpose.extractor = SuperPoint(max_num_keypoints=test_num_keypoints, detection_threshold=0.0).eval().to(device)
-    pl_lightpose.module = pl_lightpose.module.eval().to(device)
+    pl_relpose = PL_RelPose.load_from_checkpoint(args.ckpt_path)
+    pl_relpose.extractor = SuperPoint(max_num_keypoints=test_num_keypoints, detection_threshold=0.0).eval().to(device)
+    pl_relpose.module = pl_relpose.module.eval().to(device)
 
     repr_errs = []
     adds, adis = [], []
@@ -62,7 +52,7 @@ def main(args):
         T = T.numpy()
 
         # with record_function("model_inference"):
-        R_est, t_est, io_time, ex_time, com_time = pl_lightpose.predict_one_data(data)
+        R_est, t_est, io_time, ex_time, com_time = pl_relpose.predict_one_data(data)
         io_times.append(io_time)
         ex_times.append(ex_time)
         com_times.append(com_time)
@@ -77,8 +67,8 @@ def main(args):
         t_gt = torch.tensor(T[:3, 3]).norm(2)
         t_gts.append(t_gt)
 
-        repr_err = reprojection_error(R_est.cpu().numpy(), t_est.cpu().numpy(), T[:3, :3], T[:3, 3], K=K1, W=image1.shape[-1], H=image1.shape[-2])
-        repr_errs.append(repr_err)
+        # repr_err = reprojection_error(R_est.cpu().numpy(), t_est.cpu().numpy(), T[:3, :3], T[:3, 3], K=K1, W=image1.shape[-1], H=image1.shape[-2])
+        # repr_errs.append(repr_err)
 
         if 'point_cloud' in data:
             adds.append(add(R_est.cpu().numpy(), t_est.cpu().numpy(), T[:3, :3], T[:3, 3], data['point_cloud'][0].numpy()))
@@ -105,16 +95,6 @@ def main(args):
     t_errs = torch.tensor(t_errs)
     R_gts = torch.tensor(R_gts).rad2deg()
     t_gts = torch.tensor(t_gts)
-
-    # pd.DataFrame({
-    #     'R_errs': R_errs,
-    #     't_errs': t_errs,
-    #     'R_gts': R_gts,
-    #     't_gts': t_gts,
-    # }).to_csv(f'results/lightpose_{args.config.split("/")[1].split(".")[0]}.csv')
-
-    # import pdb
-    # pdb.set_trace()
 
     return R_errs, t_errs, R_gts, t_gts
 

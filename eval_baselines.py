@@ -4,14 +4,13 @@ import argparse
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import torch
-from lightglue.utils import load_image
+import pandas as pd
 
+from lightglue.utils import load_image
 from configs.default import get_cfg_defaults
 from datasets import dataset_dict
-from RelPoseRepo.pose import PoseRecover
+from baselines.pose import PoseRecover
 from utils.metrics import relative_pose_error, rotation_angular_error, error_auc, reproj, add, adi, compute_continuous_auc
-
-import pandas as pd
 
 
 def main(args):
@@ -32,7 +31,7 @@ def main(args):
 
     device = args.device
     img_resize = args.resize
-    poseRec = PoseRecover(matcher=args.matcher, solver=3, img_resize=img_resize, device=device)
+    poseRec = PoseRecover(matcher=args.matcher, img_resize=img_resize, device=device)
     
     R_errs, t_errs = [], []
     R_gts, t_gts = [], []
@@ -40,8 +39,8 @@ def main(args):
     adds, adis, prjs = [], [], []
     io_times, ex_times, com_times, re_times = [], [], [], []
     for i, data in enumerate(tqdm(testloader)):
-        if i >= 100:
-            break
+        # if i >= 100:
+        #     break
         # if data['objName'][0][0] != '011_banana':
         #     continue
         if dataset == 'megadepth':
@@ -158,7 +157,7 @@ def main(args):
                 else:
                     adds.append(add(R, t, T[:3, :3], T[:3, 3], data['point_cloud'][0].numpy()))
                     adis.append(adi(R, t, T[:3, :3], T[:3, 3], data['point_cloud'][0].numpy()))
-                    prjs.append(reproj(K1.numpy(), R, t, T[:3, :3], T[:3, 3], data['point_cloud'][0].numpy()))
+                    # prjs.append(reproj(K1.numpy(), R, t, T[:3, :3], T[:3, 3], data['point_cloud'][0].numpy()))
 
 
     io_times = np.array(io_times) * 1000
@@ -208,7 +207,7 @@ def main(args):
         if task == 'object':
             print(f'ADD:\t\t{compute_continuous_auc(adds, np.linspace(0.0, 0.1, 1000)):.4f}')
             print(f'ADD-S\t\t{compute_continuous_auc(adis, np.linspace(0.0, 0.1, 1000)):.4f}')
-            print(f'Proj.2D:\t{compute_continuous_auc(prjs, np.linspace(0.0, 40.0, 1000)):.4f}')
+            # print(f'Proj.2D:\t{compute_continuous_auc(prjs, np.linspace(0.0, 40.0, 1000)):.4f}')
 
     pd.DataFrame({
         'R_errs': R_errs,

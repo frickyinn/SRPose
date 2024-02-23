@@ -3,14 +3,14 @@ import numpy as np
 import torch
 import lightning as L
 from lightglue import SuperPoint
-
-from utils import rotation_angular_error, translation_angular_error, error_auc
-from model import LightPose
-
 import time
 
+from utils import rotation_angular_error, translation_angular_error, error_auc
+from .relpose import RelPose
 
-class PL_LightPose(L.LightningModule):
+
+
+class PL_RelPose(L.LightningModule):
     def __init__(
             self,
             task,
@@ -25,7 +25,7 @@ class PL_LightPose(L.LightningModule):
         super().__init__()
         
         self.extractor = SuperPoint(max_num_keypoints=num_keypoints, detection_threshold=0.0).eval()
-        self.module = LightPose(features=features, task=task, n_layers=n_layers, num_heads=num_heads)
+        self.module = RelPose(features=features, task=task, n_layers=n_layers, num_heads=num_heads)
         self.criterion = torch.nn.HuberLoss()
 
         self.s_r = torch.nn.Parameter(torch.zeros(1))

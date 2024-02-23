@@ -20,15 +20,15 @@ def backproject_3d(uv, depth, K):
 class EssentialMatrixSolver:
     '''Obtain relative pose (up to scale) given a set of 2D-2D correspondences'''
 
-    def __init__(self, cfg):
+    def __init__(self, ransac_pix_threshold=0.5, ransac_confidence=0.99999):
 
         # EMat RANSAC parameters
-        self.ransac_pix_threshold = cfg.EMAT_RANSAC.PIX_THRESHOLD
-        self.ransac_confidence = cfg.EMAT_RANSAC.CONFIDENCE
+        self.ransac_pix_threshold = ransac_pix_threshold
+        self.ransac_confidence = ransac_confidence
 
     def estimate_pose(self, kpts0, kpts1, data):
         R = np.full((3, 3), np.nan)
-        t = np.full((3, 1), np.nan)
+        t = np.full((3), np.nan)
         if len(kpts0) < 5:
             return R, t, 0
 
@@ -238,11 +238,11 @@ class PnPSolver:
 class ProcrustesSolver:
     '''Estimate relative pose (metric) using 3D-3D correspondences'''
 
-    def __init__(self, cfg):
+    def __init__(self, ransac_max_corr_distance=0.001, refine=False):
 
         # Procrustes RANSAC parameters
-        self.ransac_max_corr_distance = cfg.PROCRUSTES.MAX_CORR_DIST
-        self.refine = cfg.PROCRUSTES.REFINE
+        self.ransac_max_corr_distance = ransac_max_corr_distance
+        self.refine = refine
 
     def estimate_pose(self, pts0, pts1, data):
         # uses nearest neighbour
@@ -250,7 +250,7 @@ class ProcrustesSolver:
         pts1 = np.int32(pts1)
 
         if len(pts0) < 3:
-            return np.full((3, 3), np.nan), np.full((3, 1), np.nan), 0
+            return np.full((3, 3), np.nan), np.full((3), np.nan), 0
 
         # get depth at correspondence points
         depth_0, depth_1 = data['depth0'], data['depth1']
@@ -260,7 +260,7 @@ class ProcrustesSolver:
         # remove invalid pts (depth == 0)
         valid = (depth_pts0 > depth_0.min()) * (depth_pts1 > depth_1.min())
         if valid.sum() < 3:
-            return np.full((3, 3), np.nan), np.full((3, 1), np.nan), 0
+            return np.full((3, 3), np.nan), np.full((3), np.nan), 0
         pts0 = pts0[valid]
         pts1 = pts1[valid]
         depth_pts0 = depth_pts0[valid]
@@ -315,6 +315,6 @@ class ProcrustesSolver:
                                                               criteria=icp_criteria)
 
         R = res.transformation[:3, :3]
-        t = res.transformation[:3, -1].reshape(3, 1)
+        t = res.transformation[:3, -1]
         inliers = int(res.fitness * np.asarray(pcl_1.points).shape[0])
         return R, t, inliers

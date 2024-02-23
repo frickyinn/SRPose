@@ -255,9 +255,9 @@ class TransformerLayer(nn.Module):
         return self.cross_attn(desc0, desc1, match, mask)
 
 
-class LightPose(nn.Module):
+class RelPose(nn.Module):
     default_conf = {
-        "name": "lightpose",  # just for interfacing
+        "name": "RelPose",  # just for interfacing
         "input_dim": 256,  # input descriptor dimension (autoselected from weights)
         "descriptor_dim": 256,
         "add_scale_ori": False,
