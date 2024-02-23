@@ -27,6 +27,7 @@ def main(args):
     num_keypoints = config.MODEL.NUM_KEYPOINTS
     n_layers = config.MODEL.N_LAYERS
     num_heads = config.MODEL.NUM_HEADS
+    features = config.MODEL.FEATURES
 
     seed = config.RANDOM_SEED
     seed_torch(seed)
@@ -58,6 +59,7 @@ def main(args):
             n_layers=n_layers,
             num_heads=num_heads,
             num_keypoints=num_keypoints,
+            features=features,
         )
     else:
         pl_relpose = PL_RelPose.load_from_checkpoint(
@@ -75,7 +77,7 @@ def main(args):
     latest_checkpoint_callback = ModelCheckpoint()
     best_checkpoint_callback = ModelCheckpoint(monitor='valid_auc@20', mode='max')
     trainer = L.Trainer(
-        devices=[0, 1], accelerator='gpu', strategy='ddp_find_unused_parameters_true', 
+        devices=[0], accelerator='gpu', strategy='ddp_find_unused_parameters_true', 
         max_epochs=epochs, 
         callbacks=[lr_monitor, latest_checkpoint_callback, best_checkpoint_callback],
         precision="bf16-mixed",

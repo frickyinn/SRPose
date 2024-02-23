@@ -7,8 +7,7 @@ from tqdm import tqdm
 import pandas as pd
 import time
 
-from lightglue import SuperPoint
-from model import PL_RelPose
+from model import PL_RelPose, keypoint_dict
 # from utils.reprojection import reprojection_error
 from datasets import dataset_dict
 from utils.metrics import reproj, add, adi, compute_continuous_auc, relative_pose_error, rotation_angular_error
@@ -32,7 +31,7 @@ def main(args):
     testloader = torch.utils.data.DataLoader(testset, batch_size=1)
 
     pl_relpose = PL_RelPose.load_from_checkpoint(args.ckpt_path)
-    pl_relpose.extractor = SuperPoint(max_num_keypoints=test_num_keypoints, detection_threshold=0.0).eval().to(device)
+    pl_relpose.extractor = keypoint_dict[pl_relpose.hparams['features']](max_num_keypoints=test_num_keypoints, detection_threshold=0.0).eval().to(device)
     pl_relpose.module = pl_relpose.module.eval().to(device)
 
     repr_errs = []
@@ -84,8 +83,8 @@ def main(args):
     print(f'{np.mean(com_times):.4f}')
     print(f'{np.mean((io_times+ex_times+com_times)):.4f}')
 
-    re = np.array(repr_errs)
-    print(f'repr_err:\t{re.mean():.4f}')
+    # re = np.array(repr_errs)
+    # print(f'repr_err:\t{re.mean():.4f}')
     if task == 'object':
         print(f'ADD:\t\t{compute_continuous_auc(adds, np.linspace(0.0, 0.1, 1000)):.4f}')
         print(f'ADD-S\t\t{compute_continuous_auc(adis, np.linspace(0.0, 0.1, 1000)):.4f}')

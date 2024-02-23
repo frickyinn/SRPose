@@ -1,8 +1,7 @@
 import torch
-from lightglue import SuperPoint
 
 from .relpose import RelPose
-from .pl_trainer import PL_RelPose
+from .pl_trainer import PL_RelPose, keypoint_dict
 
 
 class SparseRelPose():
@@ -10,7 +9,7 @@ class SparseRelPose():
         ckpt = torch.load(ckpt_path)
         hparams = ckpt['hparams']
 
-        self.extractor = SuperPoint(max_num_keypoints=num_keypoints, detection_threshold=0.0).eval().to(device)
+        self.extractor = keypoint_dict[hparams['features']](max_num_keypoints=num_keypoints, detection_threshold=0.0).eval().to(device)
         self.module = RelPose(
             features=hparams['features'],
             task=hparams['task'], 

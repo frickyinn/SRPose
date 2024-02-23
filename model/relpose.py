@@ -282,19 +282,19 @@ class RelPose(nn.Module):
 
     features = {
         "superpoint": {
-            "weights": "superpoint_lightglue",
+            # "weights": "superpoint_lightglue",
             "input_dim": 256,
         },
         "disk": {
-            "weights": "disk_lightglue",
+            # "weights": "disk_lightglue",
             "input_dim": 128,
         },
         "aliked": {
-            "weights": "aliked_lightglue",
+            # "weights": "aliked_lightglue",
             "input_dim": 128,
         },
         "sift": {
-            "weights": "sift_lightglue",
+            # "weights": "sift_lightglue",
             "input_dim": 128,
             "add_scale_ori": True,
         },
@@ -329,19 +329,19 @@ class RelPose(nn.Module):
         )
 
         self.rotation_regressor = nn.Sequential(
-            nn.Linear(conf.input_dim*2, conf.input_dim), 
+            nn.Linear(conf.descriptor_dim*2, conf.descriptor_dim), 
             nn.ReLU(), 
-            nn.Linear(conf.input_dim, conf.input_dim//2), 
+            nn.Linear(conf.descriptor_dim, conf.descriptor_dim//2), 
             nn.ReLU(), 
-            nn.Linear(conf.input_dim//2, 6),
+            nn.Linear(conf.descriptor_dim//2, 6),
         )
 
         self.translation_regressor = nn.Sequential(
-            nn.Linear(conf.input_dim*2, conf.input_dim), 
+            nn.Linear(conf.descriptor_dim*2, conf.descriptor_dim), 
             nn.ReLU(), 
-            nn.Linear(conf.input_dim, conf.input_dim//2), 
+            nn.Linear(conf.descriptor_dim, conf.descriptor_dim//2), 
             nn.ReLU(), 
-            nn.Linear(conf.input_dim//2, 3),
+            nn.Linear(conf.descriptor_dim//2, 3),
         )
 
         self.reg_kpts0 = nn.Identity()

@@ -1,10 +1,9 @@
 import argparse
 from torch.utils.data import DataLoader
 import lightning as L
-from lightglue import SuperPoint
 
 from datasets import dataset_dict
-from model import PL_RelPose
+from model import PL_RelPose, keypoint_dict
 from configs.default import get_cfg_defaults
 
 
@@ -30,7 +29,7 @@ def main(args):
     testloader = DataLoader(testset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory)
 
     pl_relpose = PL_RelPose.load_from_checkpoint(args.ckpt_path)
-    pl_relpose.extractor = SuperPoint(max_num_keypoints=test_num_keypoints, detection_threshold=0.0).eval()
+    pl_relpose.extractor = keypoint_dict[pl_relpose.hparams['features']](max_num_keypoints=test_num_keypoints, detection_threshold=0.0).eval()
 
     trainer = L.Trainer(
         devices=[0], 

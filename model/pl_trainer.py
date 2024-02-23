@@ -2,12 +2,19 @@ from typing import Any
 import numpy as np
 import torch
 import lightning as L
-from lightglue import SuperPoint
+from lightglue import SuperPoint, DISK, SIFT, ALIKED
 import time
 
 from utils import rotation_angular_error, translation_angular_error, error_auc
 from .relpose import RelPose
 
+
+keypoint_dict = {
+    'superpoint': SuperPoint,
+    'disk': DISK,
+    'sift': SIFT,
+    'aliked': ALIKED,
+}
 
 
 class PL_RelPose(L.LightningModule):
@@ -24,7 +31,7 @@ class PL_RelPose(L.LightningModule):
         ):
         super().__init__()
         
-        self.extractor = SuperPoint(max_num_keypoints=num_keypoints, detection_threshold=0.0).eval()
+        self.extractor = keypoint_dict[features](max_num_keypoints=num_keypoints, detection_threshold=0.0).eval()
         self.module = RelPose(features=features, task=task, n_layers=n_layers, num_heads=num_heads)
         self.criterion = torch.nn.HuberLoss()
 
