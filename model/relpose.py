@@ -1,15 +1,12 @@
 import warnings
-from pathlib import Path
 from types import SimpleNamespace
 from typing import Callable, List, Optional, Tuple
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
 
 from utils import rotation_matrix_from_ortho6d
-# from utils.transform import recover_pose
 
 try:
     from flash_attn.modules.mha import FlashCrossAttention
@@ -25,25 +22,9 @@ torch.backends.cudnn.deterministic = True
 torch.set_float32_matmul_precision('medium')
 
 
-# @torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
-# def normalize_keypoints(
-#     kpts: torch.Tensor, size: Optional[torch.Tensor] = None
-# ) -> torch.Tensor:
-#     if size is None:
-#         size = 1 + kpts.max(-2).values - kpts.min(-2).values
-#     elif not isinstance(size, torch.Tensor):
-#         size = torch.tensor(size, device=kpts.device, dtype=kpts.dtype)
-#     size = size.to(kpts)
-#     shift = size / 2
-#     scale = size.max(-1).values / 2
-#     kpts = (kpts - shift[..., None, :]) / scale[..., None, None]
-#     return kpts
-
-# @torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
 def normalize_keypoints(kpts, intrinsics):
     # kpts: (B, M, 2)
     # intrinsics: (B, 3, 3)
-
     b, m, _ = kpts.shape
     kpts = torch.cat([kpts, torch.ones((b, m, 1), device=kpts.device)], dim=2)
     kpts = intrinsics.inverse() @ kpts.mT
@@ -151,12 +132,6 @@ class SelfBlock(nn.Module):
         q += encoding
         k += encoding
 
-        # s = q.shape[-1] ** -0.5
-        # sim = torch.einsum("...id,...jd->...ij", q, k) * s
-        # if mask is not None:
-        #     sim.masked_fill(~mask.unsqueeze(1), -float("inf"))
-        # attn = F.softmax(sim, -1)
-        # context = torch.einsum("...ij,...jd->...id", attn, v)
         context = self.inner_attn(q, k, v, mask=mask)
 
         message = self.out_proj(context.transpose(1, 2).flatten(start_dim=-2))
@@ -269,34 +244,21 @@ class RelPose(nn.Module):
         "weights": None,
     }
 
-    # # Point pruning involves an overhead (gather).
-    # # Therefore, we only activate it if there are enough keypoints.
-    # pruning_keypoint_thresholds = {
-    #     "cpu": -1,
-    #     "mps": -1,
-    #     "cuda": 1024,
-    #     "flash": 1536,
-    # }
-
     required_data_keys = ["image0", "image1"]
 
     features = {
         "superpoint": {
-            # "weights": "superpoint_lightglue",
             "input_dim": 256,
         },
         "disk": {
-            # "weights": "disk_lightglue",
             "input_dim": 128,
         },
         "aliked": {
-            # "weights": "aliked_lightglue",
             "input_dim": 128,
         },
         "sift": {
-            # "weights": "sift_lightglue",
             "input_dim": 128,
-            "add_scale_ori": True,
+            # "add_scale_ori": True,
         },
     }
 
@@ -347,35 +309,6 @@ class RelPose(nn.Module):
         self.reg_kpts0 = nn.Identity()
         self.reg_kpts1 = nn.Identity()
 
-        # self.regressor = nn.Sequential(
-        #     nn.Linear(conf.input_dim*2, conf.input_dim), 
-        #     nn.ReLU(), 
-        #     nn.Linear(conf.input_dim, conf.input_dim//2), 
-        #     nn.ReLU(), 
-        #     nn.Linear(conf.input_dim//2, 11),
-        # )
-
-        # state_dict = None
-        # if features is not None:
-        #     fname = f"{conf.weights}_{self.version.replace('.', '-')}.pth"
-        #     state_dict = torch.hub.load_state_dict_from_url(
-        #         self.url.format(self.version, features), file_name=fname
-        #     )
-        #     self.load_state_dict(state_dict, strict=False)
-        # elif conf.weights is not None:
-        #     path = Path(__file__).parent
-        #     path = path / "weights/{}.pth".format(self.conf.weights)
-        #     state_dict = torch.load(str(path), map_location="cpu")
-
-        # if state_dict:
-        #     # rename old state dict entries
-        #     for i in range(self.conf.n_layers):
-        #         pattern = f"self_attn.{i}", f"transformers.{i}.self_attn"
-        #         state_dict = {k.replace(*pattern): v for k, v in state_dict.items()}
-        #         pattern = f"cross_attn.{i}", f"transformers.{i}.cross_attn"
-        #         state_dict = {k.replace(*pattern): v for k, v in state_dict.items()}
-        #     self.load_state_dict(state_dict, strict=False)
-
         # static lengths LightGlue is compiled for (only used with torch.compile)
         self.static_lengths = None
 
@@ -415,10 +348,6 @@ class RelPose(nn.Module):
         intrinsic0, intrinsic1 = data0["intrinsics"], data1["intrinsics"]
         b, m, _ = kpts0.shape
         b, n, _ = kpts1.shape
-        # device = kpts0.device
-        # size0, size1 = data0.get("image_size"), data1.get("image_size")
-        # kpts0 = normalize_keypoints(kpts0, size0).clone()
-        # kpts1 = normalize_keypoints(kpts1, size1).clone()
 
         if self.conf.add_scale_ori:
             kpts0 = torch.cat(
@@ -432,10 +361,6 @@ class RelPose(nn.Module):
 
         assert desc0.shape[-1] == self.conf.input_dim
         assert desc1.shape[-1] == self.conf.input_dim
-
-        # if torch.is_autocast_enabled():
-        #     desc0 = desc0.half()
-        #     desc1 = desc1.half()
 
         mask0, mask1 = None, None
         c = max(m, n)
@@ -486,8 +411,6 @@ class RelPose(nn.Module):
 
         encoding0 = self.posenc(kpts0).unsqueeze(-3)
         encoding1 = self.posenc(kpts1).unsqueeze(-3)
-        # encoding0 = torch.zeros_like(encoding0, device=encoding0.device)
-        # encoding0 = torch.zeros_like(encoding1, device=encoding1.device)
 
         for i in range(self.conf.n_layers):
             desc0, desc1 = self.transformers[i](
@@ -508,12 +431,6 @@ class RelPose(nn.Module):
         R = self.rotation_regressor(feat)
         R = rotation_matrix_from_ortho6d(R)
         t = self.translation_regressor(feat)
-        # pose = self.regressor(feat)
-        # R = rotation_matrix_from_ortho6d(pose[..., :6])
-        # t = pose[..., 6:]
-        # x = self.regressor(feat)
-        # ess = x[:, :9].reshape(-1, 3, 3)
-        # R, t = recover_pose(ess, x[:, 9], x[:, 10])
 
         return R, t
     

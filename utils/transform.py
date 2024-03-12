@@ -1,28 +1,5 @@
 import torch
 import numpy as np
-# import torch.nn.functional as F
-
-
-# def recover_pose(essential_mat, t_scale, r_sign):
-#     U, S, Vh = torch.linalg.svd(essential_mat)
-#     V = Vh.mH
-#     Z = torch.tensor([[0,1.,0], [-1,0,0], [0,0,0]], device=essential_mat.device).unsqueeze(0)
-#     W = torch.tensor([[0,-1.,0], [1,0,0], [0,0,1]], device=essential_mat.device).unsqueeze(0)
-
-#     t_cross = t_scale.unsqueeze(-1).unsqueeze(-1) * (U @ Z @ U.mT)
-#     t = torch.stack([
-#         t_cross[:, 2, 1],
-#         -t_cross[:, 2, 0],
-#         t_cross[:, 1, 0]
-#     ], dim=1)
-    
-#     W = W.repeat(r_sign.shape[0], 1, 1)
-#     W_ = torch.sign(r_sign.unsqueeze(-1).unsqueeze(-1)) * W[:, :2]
-#     W = torch.cat([W_, W[:, 2:]], dim=1)
-#     R = U @ W @ V.mT
-#     R = R * torch.det(R).detach().unsqueeze(-1).unsqueeze(-1)
-
-#     return R, t
 
 
 ########################################################################################################

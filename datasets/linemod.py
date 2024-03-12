@@ -195,15 +195,11 @@ class BOPDataset(Dataset):
 
     def _load_color(self, path):
         image = Image.open(path)
-        # new_shape = (int(image.width * self.image_scale), int(image.height * self.image_scale))
-        # image = image.resize(new_shape)
         image = np.array(image)
         return image
 
     def _load_mask(self, path):
         image = Image.open(path)
-        # new_shape = (int(image.width * self.image_scale), int(image.height * self.image_scale))
-        # image = image.resize(new_shape)
         image = np.array(image, dtype=bool)
         if len(image.shape) > 2:
             image = image[:, :, 0]
@@ -211,42 +207,8 @@ class BOPDataset(Dataset):
 
     def _load_depth(self, path):
         image = Image.open(path)
-        # new_shape = (int(image.width * self.image_scale), int(image.height * self.image_scale))
-        # image = image.resize(new_shape)
         image = np.array(image, dtype=np.float32)
         return image
-
-    # def normalize_extrinsic(self, extrinsic):
-    #     extrinsic = extrinsic.clone()
-    #     if self.center_object:
-    #         extrinsic = three.translate_matrix(extrinsic, -self.centroid.to(extrinsic.device))
-    #     extrinsic[..., :3, 3] *= self.object_scale
-    #     return extrinsic
-
-    # def denormalize_extrinsic(self, extrinsic):
-    #     extrinsic = extrinsic.clone()
-    #     extrinsic[..., :3, 3] /= self.object_scale
-    #     if self.center_object:
-    #         extrinsic = three.translate_matrix(extrinsic, self.centroid.to(extrinsic.device))
-    #     return extrinsic
-
-    # def normalize_intrinsic(self, intrinsic):
-    #     intrinsic = intrinsic.clone()
-    #     intrinsic[..., :2, :] *= self.image_scale
-    #     return intrinsic
-
-    # def denormalize_intrinsic(self, intrinsic):
-    #     intrinsic = intrinsic.clone()
-    #     intrinsic[..., :2, :] /= self.image_scale
-    #     return intrinsic
-
-    # def sample_evenly(self, n):
-    #     positions = three.extrinsic_to_position(self.extrinsics)
-    #     _, inds = three.utils.farthest_points(positions,
-    #                                           n_clusters=n,
-    #                                           dist_func=F.pairwise_distance,
-    #                                           return_center_indexes=True)
-    #     return inds
 
     def __getitem__(self, idx):
         color = self._load_color(self.color_paths[idx])

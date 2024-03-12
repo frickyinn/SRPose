@@ -10,17 +10,26 @@ preprocess_megadepth.py
 test.py
 /RelPoseRepo
 eval_regressor.py
-__eval_baselines.py
-__pose_tracking.py
 /assets/megadepth_test_new
 /configs/megadepth_new.yaml
 /results
+assets/new_submission.zip
+
+__eval_baselines.py
+__pose_tracking.py
+__track.py
+/__pose_tracking
 
 /baselines/configs
 /baselines/repo
 /baselines/weights
+/baselines/__models.py
 baselines/demo.html
 
 utils/__reprojection.py
 utils/__pose_solver.py
 utils/__generate_epipolar_imgs.py
+utils/__visualize.py
+
+submission.py
+/qualitative

@@ -109,7 +109,7 @@ class EssentialMatrixMetricSolverMEAN(EssentialMatrixSolver):
         t_metric = scale * t
         t_metric = t_metric.reshape(3, 1)
 
-        return R, t_metric, inliers
+        return R, t_metric[:, 0], inliers
 
 
 class EssentialMatrixMetricSolver(EssentialMatrixSolver):
@@ -118,9 +118,9 @@ class EssentialMatrixMetricSolver(EssentialMatrixSolver):
         The scale of the translation vector is obtained using RANSAC over the possible scales recovered from 3D-3D correspondences.
     '''
 
-    def __init__(self, cfg):
-        super().__init__(cfg)
-        self.ransac_scale_threshold = cfg.EMAT_RANSAC.SCALE_THRESHOLD
+    def __init__(self, ransac_pix_threshold=0.5, ransac_confidence=0.99999, ransac_scale_threshold=0.1):
+        super().__init__(ransac_pix_threshold, ransac_confidence)
+        self.ransac_scale_threshold = ransac_scale_threshold
 
     def estimate_pose(self, kpts0, kpts1, data):
         '''Estimates metric translation vector using by back-projecting E-mat inliers to 3D using depthmaps.
@@ -144,7 +144,7 @@ class EssentialMatrixMetricSolver(EssentialMatrixSolver):
         valid = (depth_inliers_0 > 0) * (depth_inliers_1 > 0)
         if valid.sum() < 1:
             R = np.full((3, 3), np.nan)
-            t = np.full((3, 1), np.nan)
+            t = np.full((3, ), np.nan)
             inliers = 0
             return R, t, inliers
         xyz0 = backproject_3d(inliers_kpts0[valid], depth_inliers_0[valid], K0)
@@ -169,17 +169,17 @@ class EssentialMatrixMetricSolver(EssentialMatrixSolver):
         t_metric = best_scale * t
         t_metric = t_metric.reshape(3, 1)
 
-        return R, t_metric, best_inliers
+        return R, t_metric[:, 0], best_inliers
 
 
 class PnPSolver:
     '''Estimate relative pose (metric) using Perspective-n-Point algorithm (2D-3D) correspondences'''
 
-    def __init__(self, cfg):
+    def __init__(self, ransac_iterations=1000, reprojection_inlier_threshold=3, confidence=0.99999):
         # PnP RANSAC parameters
-        self.ransac_iterations = cfg.PNP.RANSAC_ITER
-        self.reprojection_inlier_threshold = cfg.PNP.REPROJECTION_INLIER_THRESHOLD
-        self.confidence = cfg.PNP.CONFIDENCE
+        self.ransac_iterations = ransac_iterations
+        self.reprojection_inlier_threshold = reprojection_inlier_threshold
+        self.confidence = confidence
 
     def estimate_pose(self, pts0, pts1, data):
         # uses nearest neighbour
@@ -232,13 +232,13 @@ class PnPSolver:
             t = np.full((3, 1), np.nan)
             inliers = []
 
-        return R, t, len(inliers)
+        return R, t[:, 0], inliers
 
 
 class ProcrustesSolver:
     '''Estimate relative pose (metric) using 3D-3D correspondences'''
 
-    def __init__(self, ransac_max_corr_distance=0.001, refine=False):
+    def __init__(self, ransac_max_corr_distance=0.5, refine=False):
 
         # Procrustes RANSAC parameters
         self.ransac_max_corr_distance = ransac_max_corr_distance

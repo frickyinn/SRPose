@@ -15,14 +15,10 @@ def main(args):
     dataset = config.DATASET.DATA_SOURCE
 
     batch_size = config.TRAINER.BATCH_SIZE
-    # batch_size = 32
     num_workers = config.TRAINER.NUM_WORKERS
     pin_memory = config.TRAINER.PIN_MEMORY
     
     test_num_keypoints = config.MODEL.TEST_NUM_KEYPOINTS
-
-    # seed = config.RANDOM_SEED
-    # seed_torch(seed)
     
     build_fn = dataset_dict[task][dataset]
     testset = build_fn('test', config)
@@ -33,8 +29,6 @@ def main(args):
 
     trainer = L.Trainer(
         devices=[0], 
-        # accelerator='gpu', strategy='ddp_find_unused_parameters_true', 
-        # precision="bf16-mixed",
     )
     
     trainer.test(pl_relpose, dataloaders=testloader)
@@ -42,14 +36,8 @@ def main(args):
 
 def get_parser():
     parser = argparse.ArgumentParser()
-
-    # parser.add_argument('--task', type=str, help='scene | object', required=True)
-    # parser.add_argument('--dataset', type=str, help='matterport | megadepth | scannet | bop', required=True)
     parser.add_argument('config', type=str, help='.yaml configure file path')
-    parser.add_argument('--ckpt_path', type=str, required=True)
-
-    # parser.add_argument('--world_size', type=int, default=2)
-    # parser.add_argument('--device', type=str, default='cuda:0')
+    parser.add_argument('ckpt_path', type=str)
 
     return parser
 

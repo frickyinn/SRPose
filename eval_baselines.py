@@ -2,7 +2,6 @@ import numpy as np
 import os
 import argparse
 from tqdm import tqdm
-import matplotlib.pyplot as plt
 import torch
 import pandas as pd
 
@@ -10,7 +9,7 @@ from lightglue.utils import load_image
 from configs.default import get_cfg_defaults
 from datasets import dataset_dict
 from baselines.pose import PoseRecover
-from utils.metrics import relative_pose_error, rotation_angular_error, error_auc, reproj, add, adi, compute_continuous_auc
+from utils.metrics import relative_pose_error, rotation_angular_error, error_auc, add, adi, compute_continuous_auc
 
 
 def main(args):
@@ -31,26 +30,19 @@ def main(args):
 
     device = args.device
     img_resize = args.resize
-    poseRec = PoseRecover(matcher=args.matcher, img_resize=img_resize, device=device)
+    poseRec = PoseRecover(matcher=args.matcher, solver=args.solver, img_resize=img_resize, device=device)
     
+    preprocess_times, extract_times, match_times, recover_times = [], [], [], []
     R_errs, t_errs = [], []
-    R_gts, t_gts = [], []
     ts_errs = []
-    adds, adis, prjs = [], [], []
-    io_times, ex_times, com_times, re_times = [], [], [], []
+    adds, adis = [], []
     for i, data in enumerate(tqdm(testloader)):
-        # if i >= 100:
-        #     break
-        # if data['objName'][0][0] != '011_banana':
-        #     continue
+        if dataset == 'ho3d' and args.obj_name is not None and data['objName'][0] != args.obj_name:
+            continue
+
         if dataset == 'megadepth':
-            # load each image as a torch.Tensor on GPU with shape (3,H,W), normalized in [0,1]
             image0 = load_image(os.path.join(data_root, data['pair_names'][0][0])).to(device)
             image1 = load_image(os.path.join(data_root, data['pair_names'][1][0])).to(device)
-            # depth0 = torch.from_numpy(np.array(h5py.File(os.path.join(data_root, data['depth_pair_names'][0]), 'r')['depth']))
-            # depth1 = torch.from_numpy(np.array(h5py.File(os.path.join(data_root, data['depth_pair_names'][1]), 'r')['depth']))
-            # assert image0.shape[1:] == depth0.shape
-            # assert image1.shape[1:] == depth1.shape
         else:
             image0, image1 = data['images'][0].to(device)
 
@@ -74,78 +66,26 @@ def main(args):
         T = torch.eye(4)
         T[:3, :3] = data['rotation'][0]
         T[:3, 3] = data['translation'][0]
-        # T = T.inverse()
         T = T.numpy()
-        R, t, points0, points1, io_time, ex_time, com_time, re_time = poseRec.recover(image0, image1, K0, K1, bbox0, bbox1, mask0, mask1, depth0, depth1)
-        io_times.append(io_time)
-        ex_times.append(ex_time)
-        com_times.append(com_time)
-        re_times.append(re_time)
-        # print(rotation_angular_error(torch.from_numpy(T[:3, :3])[None], torch.eye(3)[None]).rad2deg())
-        # print(K0, K1, sep='\n')
-        # plt.imshow(image0.permute(1, 2, 0).cpu())
-        # plt.scatter(points0[:, 0], points0[:, 1])
-        # plt.show()
-        # plt.imshow(image1.permute(1, 2, 0).cpu())
-        # plt.scatter(points1[:, 0], points1[:, 1])
-        # plt.show()
-        # break
-        # # R_s, t_s, points0, points1 = poseRec.recover(image0, image1, K0, K1, bbox0, bbox1, mask0, mask1)
-        # pts3D0, pts3D1 = data['objCorners'][0]
-        # coord_change_mat = torch.tensor([[1., 0., 0.], [0, -1., 0.], [0., 0., -1.]])
-        # # if is_OpenGL_coords:
-        # # pts3D_t = pts3D0 @ torch.from_numpy(R).float().mT + torch.from_numpy(t).float()
-        # # pts3D_ts = pts3D0 @ torch.from_numpy(R_s).float().mT + torch.from_numpy(t_s).float()
 
-        # pts3D0 = pts3D0 @ coord_change_mat.mT
-        # pts3D1 = pts3D1 @ coord_change_mat.mT
-        # # pts3D_t = pts3D_t @ coord_change_mat.mT
-        # # pts3D_ts = pts3D_ts @ coord_change_mat.mT
-
-        # proj_pts0 = pts3D0 @ K0.mT.float()
-        # proj_pts1 = pts3D1 @ K1.mT.float()
-        # # proj_pts_t = pts3D_t @ K0.mT.float()
-        # # proj_pts_ts = pts3D_ts @ K0.mT.float()
-
-        # proj_pts0 = torch.stack([proj_pts0[:,0]/proj_pts0[:,2], proj_pts0[:,1]/proj_pts0[:,2]],axis=1)
-        # proj_pts1 = torch.stack([proj_pts1[:,0]/proj_pts1[:,2], proj_pts1[:,1]/proj_pts1[:,2]],axis=1)
-        # # proj_pts_t = torch.stack([proj_pts_t[:,0]/proj_pts_t[:,2], proj_pts_t[:,1]/proj_pts_t[:,2]],axis=1)
-        # # proj_pts_ts = torch.stack([proj_pts_ts[:,0]/proj_pts_ts[:,2], proj_pts_ts[:,1]/proj_pts_ts[:,2]],axis=1)
-        # # import pdb
-        # # pdb.set_trace()
-        # print(T)
-        # print(R)
-        # print(t)
-
-        # plt.subplot(1, 2, 1)
-        # plt.imshow(data['images'][0, 0].permute(1, 2, 0))
-        # # plt.scatter([bbox[0], bbox[2]], [bbox[1], bbox[3]])
-        # plt.scatter(proj_pts0[:, 0], proj_pts0[:, 1])
-        # plt.subplot(1, 2, 2)
-        # plt.imshow(data['images'][0, 1].permute(1, 2, 0))
-        # plt.scatter(proj_pts1[:, 0], proj_pts1[:, 1])
-        # # plt.scatter(proj_pts_ts[:, 0], proj_pts_ts[:, 1])
-        # # plt.scatter(proj_pts_t[:, 0], proj_pts_t[:, 1])
-        # plt.show()
-        # break
+        R, t, points0, points1, preprocess_time, extract_time, match_time, recover_time = poseRec.recover(image0, image1, K0, K1, bbox0, bbox1, mask0, mask1, depth0, depth1)
+        preprocess_times.append(preprocess_time)
+        extract_times.append(extract_time)
+        match_times.append(match_time)
+        recover_times.append(recover_time)
 
         if np.isnan(R).any():
             R_err = 180
+            R = np.identity(3)
             t_err = 180
+            t = np.array([0., 0., 0.])
         else:
             t_err, R_err = relative_pose_error(T, R, t, ignore_gt_t_thr=0.0)
 
         R_errs.append(R_err)
         t_errs.append(t_err)
 
-        R_gt = rotation_angular_error(torch.from_numpy(T[:3, :3])[None], torch.eye(3)[None])
-        R_gts.append(R_gt[0])
-        t_gt = torch.tensor(T[:3, 3]).norm(2)
-        t_gts.append(t_gt)
-
         if args.depth:
-            # repr_err = reprojection_error(R, t, T[:3, :3], T[:3, 3], K=K1, W=image1.shape[-1], H=image1.shape[-2])
-            # repr_errs.append(repr_err)
             t = np.nan_to_num(t)
             ts_errs.append(torch.tensor(T[:3, 3] - t).norm(2))
 
@@ -153,88 +93,92 @@ def main(args):
                 if np.isnan(R).any():
                     adds.append(1.)
                     adis.append(1.)
-                    prjs.append(40.)
                 else:
                     adds.append(add(R, t, T[:3, :3], T[:3, 3], data['point_cloud'][0].numpy()))
                     adis.append(adi(R, t, T[:3, :3], T[:3, 3], data['point_cloud'][0].numpy()))
-                    # prjs.append(reproj(K1.numpy(), R, t, T[:3, :3], T[:3, 3], data['point_cloud'][0].numpy()))
 
+    metrics = []
+    values = []
 
-    io_times = np.array(io_times) * 1000
-    ex_times = np.array(ex_times) * 1000
-    com_times = np.array(com_times) * 1000
-    re_times = np.array(re_times) * 1000
+    preprocess_times = np.array(preprocess_time) * 1000
+    extract_times = np.array(extract_time) * 1000
+    match_times = np.array(match_times) * 1000
+    recover_times = np.array(recover_time) * 1000
 
-    print(f'{np.mean(io_times):.4f}')
-    print(f'{np.mean(ex_times):.4f}')
-    print(f'{np.mean(com_times):.4f}')
-    print(f'{np.mean(re_times):.4f}')
-    # print(f'{np.mean(io_times+ex_times+com_times+re_times):.4f}')
+    metrics.append('Extracting Time (ms)')
+    values.append(f'{np.mean(extract_times):.1f}')
+    
+    metrics.append('Matching Time (ms)')
+    values.append(f'{np.mean(match_times):.1f}')
+
+    metrics.append('Recovering Time (ms)')
+    values.append(f'{np.mean(recover_times):.1f}')
+    
+    metrics.append('Total Time (ms)')
+    values.append(f'{np.mean(extract_times) + np.mean(match_times) + np.mean(recover_times):.1f}')
 
     # pose auc
     angular_thresholds = [5, 10, 20]
     pose_errors = np.max(np.stack([R_errs, t_errs]), axis=0)
-    aucs = error_auc(pose_errors, angular_thresholds, mode=args.matcher)  # (auc@5, auc@10, auc@20)
+    aucs = error_auc(pose_errors, angular_thresholds, mode='Pose estimation')  # (auc@5, auc@10, auc@20)
     for k in aucs:
-        print(f'{k}:\t{aucs[k]:.4f}')
+        metrics.append(k)
+        values.append(f'{aucs[k] * 100:.2f}')
     
     R_errs = torch.tensor(R_errs)
     t_errs = torch.tensor(t_errs)
-    print(f'rotation_err_avg:\t{R_errs.mean():.2f}')
-    print(f'rotation_err_med:\t{R_errs.median():.2f}')
-    print(f'rotation_acc_30d:\t{(R_errs < 30).float().mean():.4f}')
-    print(f'rotation_acc_15d:\t{(R_errs < 15).float().mean():.4f}')
-    print(f'trans_ang_err_avg:\t{t_errs.mean():.2f}')
-    print(f'trans_ang_err_med:\t{t_errs.median():.2f}')
-    # print(f'trans_ang_acc_30d:\t{(t_errs < 30).float().mean():.4f}')
-    # print(f'trans_ang_acc_15d:\t{(t_errs < 15).float().mean():.4f}')
-    
-    R_gts = torch.tensor(R_gts).rad2deg()
-    t_gts = torch.tensor(t_gts)
-    print(f'rel_rotation_avg:\t{R_gts.mean():.2f}')
-    print(f'rel_rotation_max:\t{R_gts.max():.2f}')
-    print(f'rel_translation_avg:\t{t_gts.mean():.2f}')
-    print(f'rel_translation_max:\t{t_gts.max():.2f}')
+
+    metrics.append('Rotation Avg. Error (°)')
+    values.append(f'{R_errs.mean():.2f}')
+
+    metrics.append('Rotation Med. Error (°)')
+    values.append(f'{R_errs.median():.2f}')
+
+    metrics.append('Rotation @30° ACC')
+    values.append(f'{(R_errs < 30).float().mean() * 100:.1f}')
+
+    metrics.append('Rotation @15° ACC')
+    values.append(f'{(R_errs < 15).float().mean() * 100:.1f}')
 
     if args.depth:
-        # repr_errs = np.array(repr_errs)
         ts_errs = torch.tensor(ts_errs)
-        # print(f'reproject_errors:\t{repr_errs.mean():.4f}')
-        print(f'trans_len_err_avg:\t{ts_errs.mean():.4f}')
-        print(f'trans_len_err_med:\t{ts_errs.median():.4f}')
-        print(f'trans_len_err_10cm:\t{(ts_errs < 0.1).float().mean():.4f}')
+
+        metrics.append('Translation Avg. Error (m)')
+        values.append(f'{ts_errs.mean():.4f}')
+
+        metrics.append('Translation Med. Error (m)')
+        values.append(f'{ts_errs.median():.4f}')
+        
+        metrics.append('Translation @1m ACC')
+        values.append(f'{(ts_errs < 1.0).float().mean() * 100:.1f}')
+
+        metrics.append('Translation @10cm ACC')
+        values.append(f'{(ts_errs < 0.1).float().mean() * 100:.1f}')
 
         if task == 'object':
-            print(f'ADD:\t\t{compute_continuous_auc(adds, np.linspace(0.0, 0.1, 1000)):.4f}')
-            print(f'ADD-S\t\t{compute_continuous_auc(adis, np.linspace(0.0, 0.1, 1000)):.4f}')
-            # print(f'Proj.2D:\t{compute_continuous_auc(prjs, np.linspace(0.0, 40.0, 1000)):.4f}')
+            metrics.append('Object ADD')
+            values.append(f'{compute_continuous_auc(adds, np.linspace(0.0, 0.1, 1000)) * 100:.1f}')
 
-    pd.DataFrame({
-        'R_errs': R_errs,
-        't_errs': t_errs,
-        'R_gts': R_gts,
-        't_gts': t_gts,
-    }).to_csv(f'results/{args.matcher}_{args.config.split("/")[1].split(".")[0]}.csv')
+            metrics.append('Object ADD-S')
+            values.append(f'{compute_continuous_auc(adis, np.linspace(0.0, 0.1, 1000)) * 100:.1f}')
 
-    return R_errs, t_errs, R_gts, t_gts
+    res = pd.DataFrame({'Metrics': metrics, 'Values': values})
+    print(res)
 
 
 def get_parser():
     parser = argparse.ArgumentParser()
-
-    # parser.add_argument('--task', type=str, help='scene | object', choices={'scene', 'object'}, required=True)
-    # parser.add_argument('--dataset', type=str, help='matterport | megadepth | scannet | bop', required=True)
     parser.add_argument('config', type=str, help='.yaml configure file path')
-
     parser.add_argument('matcher', type=str)
-    parser.add_argument('--device', type=str, default='cuda:0')
+    parser.add_argument('--solver', type=str, default='procrustes')
 
-    # parser.add_argument('--resize', action='store_true')
     parser.add_argument('--resize', type=int, default=None)
-    # parser.add_argument('--w_new', type=int, default=640)
-    # parser.add_argument('--h_new', type=int, default=480)
-    parser.add_argument('--mask', action='store_true')
     parser.add_argument('--depth', action='store_true')
+
+    parser.add_argument('--mask', action='store_true')
+    parser.add_argument('--obj_name', type=str, default=None)
+
+    parser.add_argument('--device', type=str, default='cuda:0')
 
     return parser
 

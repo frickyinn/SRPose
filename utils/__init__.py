@@ -6,7 +6,7 @@ import torch
 from .metrics import quat_degree_error, rotation_angular_error, translation_angular_error, error_auc
 from .transform import rotation_matrix_from_ortho6d, rotation_matrix_from_quaternion
 from .augment import Augmentor
-from .visualize import project_3D_points, plot_3D_box
+# from .visualize import project_3D_points, plot_3D_box
 
 
 def seed_torch(seed):

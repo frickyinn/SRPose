@@ -70,9 +70,6 @@ class Matterport3D(Dataset):
         rotation /= rotation.norm(2)
         rotation = rotation_matrix_from_quaternion(rotation[None,])[0]
 
-        # if self.is_training and np.random.rand() > 0.5:
-        #     images = images[[1, 0]]
-
         rotation = rotation.mT
         translation = -rotation @ translation.unsqueeze(-1)
         translation = translation[:, 0]

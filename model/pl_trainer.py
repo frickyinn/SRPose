@@ -47,11 +47,11 @@ class PL_RelPose(L.LightningModule):
 
     def _shared_log(self, mode, loss, loss_r, loss_t, loss_ta, loss_tn):
         self.log_dict({
-            f'{mode}_loss': loss,
-            f'{mode}_loss_r': loss_r,
-            f'{mode}_loss_t': loss_t,
-            f'{mode}_loss_ta': loss_ta,
-            f'{mode}_loss_tn': loss_tn,
+            f'{mode}_loss/sum': loss,
+            f'{mode}_loss/r': loss_r,
+            f'{mode}_loss/t': loss_t,
+            f'{mode}_loss/ta': loss_ta,
+            f'{mode}_loss/tn': loss_tn,
         }, on_epoch=True, sync_dist=True)
 
     def training_step(self, batch, batch_idx):
@@ -62,8 +62,6 @@ class PL_RelPose(L.LightningModule):
         self.t_errors['train'].append(t_err)
 
         self._shared_log('train', loss, loss_r, loss_t, loss_ta, loss_tn)
-        # self.log('s_r', self.s_r)
-        # self.log('s_t', self.s_t)
 
         return loss
     
@@ -134,13 +132,13 @@ class PL_RelPose(L.LightningModule):
         image0 = images[:, 0, ...]
         image1 = images[:, 1, ...]
 
-        io_time = time.time()
+        preprocess = time.time()
 
         with torch.no_grad():
             feats0 = self.extractor({'image': image0})
             feats1 = self.extractor({'image': image1})
         
-        ex_time = time.time()
+        extract_time = time.time()
 
         if 'scales' in data:
             scales = data['scales'].to(device)
@@ -153,9 +151,9 @@ class PL_RelPose(L.LightningModule):
             bboxes = data['bboxes'].to(device)
             pred_r, pred_t = self.module({'image0': {**feats0, 'intrinsics': intrinsics[:, 0], 'bbox': bboxes[:, 0]}, 'image1': {**feats1, 'intrinsics': intrinsics[:, 1]}})
 
-        com_time = time.time()
+        regress_time = time.time()
 
-        return pred_r[0], pred_t[0], io_time-st_time, ex_time-io_time, com_time-ex_time
+        return pred_r[0], pred_t[0], preprocess-st_time, extract_time-preprocess, regress_time-extract_time
         
 
     def _shared_on_epoch_end(self, mode):
@@ -168,16 +166,16 @@ class PL_RelPose(L.LightningModule):
 
         self.log_dict({
             **auc,
-            f'{mode}_r_avg': r_errors.mean(),
-            f'{mode}_r_med': r_errors.median(),
-            f'{mode}_r_30d': (r_errors < 30).float().mean(),
-            f'{mode}_r_15d': (r_errors < 15).float().mean(),
-            f'{mode}_ta_avg': ta_errors.mean(),
-            f'{mode}_ta_med': ta_errors.median(),
-            f'{mode}_t_avg': t_errors.mean(),
-            f'{mode}_t_med': t_errors.median(),
-            f'{mode}_t_10cm': (t_errors < 0.1).float().mean(),
-            f'{mode}_t_1m': (t_errors < 1.0).float().mean(),
+            f'{mode}_Rot./Avg. Error': r_errors.mean(),
+            f'{mode}_Rot./Med. Error': r_errors.median(),
+            f'{mode}_Rot./@30° ACC': (r_errors < 30).float().mean(),
+            f'{mode}_Rot./@15° ACC': (r_errors < 15).float().mean(),
+            # f'{mode}_ta/avg': ta_errors.mean(),
+            # f'{mode}_ta/med': ta_errors.median(),
+            f'{mode}_Trans./Avg. Error': t_errors.mean(),
+            f'{mode}_Trans./Med. Error': t_errors.median(),
+            f'{mode}_Trans./@10cm ACC': (t_errors < 0.1).float().mean(),
+            f'{mode}_Trans./@1m ACC': (t_errors < 1.0).float().mean(),
         }, sync_dist=True)
 
         self.r_errors[mode].clear()

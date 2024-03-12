@@ -36,7 +36,7 @@ def main(args):
     trainset = build_fn('train', config)
     validset = build_fn('val', config)
 
-    if dataset == 'scannet' or dataset == 'megadepth' or dataset == 'linemod' or dataset == 'ho3d':
+    if dataset == 'scannet' or dataset == 'megadepth' or dataset == 'linemod' or dataset == 'ho3d' or dataset == 'mapfree':
         sampler = RandomConcatSampler(
             trainset,
             n_samples_per_subset=n_samples_per_subset,
@@ -77,7 +77,7 @@ def main(args):
     latest_checkpoint_callback = ModelCheckpoint()
     best_checkpoint_callback = ModelCheckpoint(monitor='valid_auc@20', mode='max')
     trainer = L.Trainer(
-        devices=[0], accelerator='gpu', strategy='ddp_find_unused_parameters_true', 
+        devices=[0, 1], accelerator='gpu', strategy='ddp_find_unused_parameters_true', 
         max_epochs=epochs, 
         callbacks=[lr_monitor, latest_checkpoint_callback, best_checkpoint_callback],
         precision="bf16-mixed",
@@ -89,15 +89,9 @@ def main(args):
 
 def get_parser():
     parser = argparse.ArgumentParser()
-
-    # parser.add_argument('--task', type=str, help='scene | object', choices={'scene', 'object'}, required=True)
-    # parser.add_argument('--dataset', type=str, help='matterport | megadepth | scannet | bop | ho3d', required=True)
     parser.add_argument('config', type=str, help='.yaml configure file path')
     parser.add_argument('--resume', type=str, default=None)
     parser.add_argument('--weights', type=str, default=None)
-
-    # parser.add_argument('--world_size', type=int, default=2)
-    # parser.add_argument('--device', type=str, default='cuda:0')
 
     return parser
 
