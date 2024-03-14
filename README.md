@@ -132,7 +132,7 @@ unzip <pathto>/test.zip -d data/mapfree
 ```
 3. The ground truth of the test set is not publicly available, but you can run the following command to produce a new submission file and submit it on the [project page](https://research.nianticlabs.com/mapfree-reloc-benchmark/submit) for evaluation:
 ```
-python eval.py configs/mapfree.yaml checkpoints/mapfree.ckpt
+python eval_add_reproj.py configs/mapfree.yaml checkpoints/mapfree.ckpt
 ```
 You should be able to find a `new_submission.zip` in `SRPose/assets/` afterwards, or you can submit the already produced file `SRPose/assets/mapfree_submission.zip` instead.
 
