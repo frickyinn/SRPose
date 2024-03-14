@@ -14,7 +14,7 @@ pip install -r requirements.txt
 ```
 
 ## Evaluation
-1. Download pretrained models here for evaluation.
+1. Download pretrained models [here](https://drive.google.com/drive/folders/1bBlds3UX7-XDCevbIl4bnnywvWzzP5nN) for evaluation.
 2. Create new folders:
 ```
 mkdir checkpoints & mkdir data
