@@ -33,8 +33,8 @@ SRPose
 ```
 
 ### Matterport
-1. Download Matterport dataset (here)[https://github.com/jinlinyi/SparsePlanes/blob/main/docs/data.md], only `mp3d_planercnn_json.zip` and `rgb.zip` are required.
-2. Unzip the files:
+1. Download Matterport dataset [here](https://github.com/jinlinyi/SparsePlanes/blob/main/docs/data.md), only `mp3d_planercnn_json.zip` and `rgb.zip` are required.
+2. Unzip and organize the downloaded files:
 ```
 mkdir data/mp3d
 mkdir data/mp3d/mp3d_planercnn_json & mkdir data/mp3d/rgb
@@ -56,7 +56,7 @@ SRPose
         ...
     ...
 ```
-4. Evaluate:
+4. Evaluate with the following command:
 ```
 python eval.py configs/matterport.yaml checkpoints/matterport.ckpt
 ```
@@ -78,28 +78,28 @@ SRPose
         ...
     ...
 ```
-3. Evaluate:
+3. Evaluate with the following commands:
 ```
 python eval.py configs/scannet.yaml checkpoints/scannet.ckpt
 python eval.py configs/megadepth.yaml checkpoints/megedepth.ckpt
 ```
 
 ### HO3D
-1. Download HO3D (version 3) dataset (here)[https://www.tugraz.at/institute/icg/research/team-lepetit/research-projects/hand-object-3d-pose-annotation/], `HO3D_v3.zip` and `HO3D_v3_segmentations_rendered.zip` are required.
-2. Unzip:
+1. Download HO3D (version 3) dataset [here](https://www.tugraz.at/institute/icg/research/team-lepetit/research-projects/hand-object-3d-pose-annotation/), `HO3D_v3.zip` and `HO3D_v3_segmentations_rendered.zip` are required.
+2. Unzip and organize the downloaded files:
 ```
 mkdir data/ho3d
 unzip <pathto>/HO3D_v3.zip -d data/ho3d
 unzip <pathto>/HO3D_v3_segmentations_rendered.zip -d data/ho3d
 ```
-3. Evaluate:
+3. Evaluate with the following commands:
 ```
 python eval.py configs/ho3d.yaml checkpoints/ho3d.ckpt
 python eval_add_reproj.py configs/ho3d.yaml checkpoints/ho3d.ckpt
 ```
 
 ### Linemod
-1. Download Linemod dataset (here)[https://bop.felk.cvut.cz/datasets/] or run the following commands:
+1. Download Linemod dataset [here](https://bop.felk.cvut.cz/datasets/) or run the following commands:
 ```
 cd data
 
@@ -115,22 +115,22 @@ unzip lm_test_all.zip -d lm   # Unpacks to "lm".
 unzip lm_train_pbr.zip -d lm  # Unpacks to "lm".
 ```
 
-2. Evaluation:
+2. Evaluate with the following commands:
 ```
 python eval.py configs/linemod.yaml checkpoints/linemod.ckpt
 python eval_add_reproj.py configs/linemod.yaml checkpoints/linemod.ckpt
 ```
 
 ### Niantic
-1. Download Niantic dataset (here)[https://research.nianticlabs.com/mapfree-reloc-benchmark/dataset].
-2. Unzip:
+1. Download Niantic dataset [here](https://research.nianticlabs.com/mapfree-reloc-benchmark/dataset).
+2. Unzip and organize the downloaded files:
 ```
 mkdir data/mapfree
 unzip <pathto>/train.zip -d data/mapfree
 unzip <pathto>/val.zip -d data/mapfree
 unzip <pathto>/test.zip -d data/mapfree
 ```
-3. The ground truth of the test set is not publicly available, but you can run the following command to produce a new submission file and submit it on the (project page)[https://research.nianticlabs.com/mapfree-reloc-benchmark/submit] for evaluation:
+3. The ground truth of the test set is not publicly available, but you can run the following command to produce a new submission file and submit it on the [project page](https://research.nianticlabs.com/mapfree-reloc-benchmark/submit) for evaluation:
 ```
 python eval.py configs/mapfree.yaml checkpoints/mapfree.ckpt
 ```
@@ -146,7 +146,7 @@ Please refer to the `.yaml` files in `SRPose/configs/` for detailed configuratio
 
 
 ## Baselines
-We also offer two publicly available matcher-based baselines, (LightGlue)[https://github.com/cvg/LightGlue] and (LoFTR)[https://github.com/zju3dv/LoFTR], for evaluation and comparison.
+We also offer two publicly available matcher-based baselines, [LightGlue](https://github.com/cvg/LightGlue) and [LoFTR](https://github.com/zju3dv/LoFTR), for evaluation and comparison.
 Just run the following commands:
 ```
 python eval_baselines.py configs/<dataset>.yaml lightglue --resize 640 --depth
