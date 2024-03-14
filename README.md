@@ -149,6 +149,14 @@ Please refer to the `.yaml` files in `SRPose/configs/` for detailed configuratio
 We also offer two publicly available matcher-based baselines, [LightGlue](https://github.com/cvg/LightGlue) and [LoFTR](https://github.com/zju3dv/LoFTR), for evaluation and comparison.
 Just run the following commands:
 ```
+# For Matterport, ScanNet and MegaDepth
+python eval_baselines.py configs/<dataset>.yaml lightglue
+python eval_baselines.py configs/<dataset>.yaml loftr
+
+# For HO3D and Linemod
 python eval_baselines.py configs/<dataset>.yaml lightglue --resize 640 --depth
 python eval_baselines.py configs/<dataset>.yaml loftr --resize 640 --depth
 ```
+
+The `--resize xx` option controls the larger dimension of input images that will be resized to.
+The `--depth` option controls whether the depth maps will be used to obtain scaled pose estimation.
