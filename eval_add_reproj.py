@@ -3,9 +3,8 @@ import numpy as np
 import torch
 from collections import defaultdict
 from tqdm import tqdm
-from pathlib import Path
-from zipfile import ZipFile
 from transforms3d.quaternions import mat2quat
+import pandas as pd
 
 from model import PL_RelPose, keypoint_dict
 from utils.reproject import reprojection_error, Pose, save_submission
@@ -117,6 +116,9 @@ def main(args):
         values.append(f'{np.median(re):.2f}')
         
         save_submission(results_dict, 'assets/new_submission.zip')
+
+    res = pd.DataFrame({'Metrics': metrics, 'Values': values})
+    print(res)
 
 
 def get_parser():

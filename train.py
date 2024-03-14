@@ -77,7 +77,9 @@ def main(args):
     latest_checkpoint_callback = ModelCheckpoint()
     best_checkpoint_callback = ModelCheckpoint(monitor='valid_auc@20', mode='max')
     trainer = L.Trainer(
-        devices=[0, 1], accelerator='gpu', strategy='ddp_find_unused_parameters_true', 
+        devices=[0],
+        # devices=[0, 1],
+        # accelerator='gpu', strategy='ddp_find_unused_parameters_true', 
         max_epochs=epochs, 
         callbacks=[lr_monitor, latest_checkpoint_callback, best_checkpoint_callback],
         precision="bf16-mixed",

@@ -1,0 +1,11 @@
+albumentations==1.4.1
+kornia==0.7.1
+open3d==0.18.0
+opencv-python==4.9.0.80
+plyfile==1.0.3
+scikit-learn==1.4.1.post1
+yacs==0.1.8
+lightning==2.2.1
+transforms3d==0.4.1
+pandas==2.1.1
+lightglue @ git+https://github.com/cvg/LightGlue@main
