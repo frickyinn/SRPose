@@ -15,7 +15,11 @@ pip install -r requirements.txt
 
 ## Evaluation
 1. Download pretrained models here for evaluation.
-2. Organize the downloaded checkpoints like this:
+2. Create new folders:
+```
+mkdir checkpoints & mkdir data
+```
+3. Organize the downloaded checkpoints like this:
 ```
 SRPose
 |-- checkpoints
