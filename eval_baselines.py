@@ -5,7 +5,7 @@ from tqdm import tqdm
 import torch
 import pandas as pd
 
-from lightglue.utils import load_image
+# from lightglue.utils import load_image
 from configs.default import get_cfg_defaults
 from datasets import dataset_dict
 from baselines.pose import PoseRecover
@@ -19,10 +19,10 @@ def main(args):
     task = config.DATASET.TASK
     dataset = config.DATASET.DATA_SOURCE
 
-    try:
-        data_root = config.DATASET.TEST.DATA_ROOT
-    except:
-        data_root = config.DATASET.DATA_ROOT
+    # try:
+    #     data_root = config.DATASET.TEST.DATA_ROOT
+    # except:
+    #     data_root = config.DATASET.DATA_ROOT
     
     build_fn = dataset_dict[task][dataset]
     testset = build_fn('test', config)
@@ -39,12 +39,13 @@ def main(args):
     for i, data in enumerate(tqdm(testloader)):
         if dataset == 'ho3d' and args.obj_name is not None and data['objName'][0] != args.obj_name:
             continue
-
-        if dataset == 'megadepth':
-            image0 = load_image(os.path.join(data_root, data['pair_names'][0][0])).to(device)
-            image1 = load_image(os.path.join(data_root, data['pair_names'][1][0])).to(device)
-        else:
-            image0, image1 = data['images'][0].to(device)
+        
+        image0, image1 = data['images'][0].to(device)
+        # if dataset == 'megadepth':
+        #     image0 = load_image(os.path.join(data_root, data['pair_names'][0][0])).to(device)
+        #     image1 = load_image(os.path.join(data_root, data['pair_names'][1][0])).to(device)
+        # else:
+        #     image0, image1 = data['images'][0].to(device)
 
         bbox0, bbox1 = None, None
         if task == 'object':

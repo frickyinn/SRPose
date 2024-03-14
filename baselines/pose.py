@@ -2,7 +2,7 @@ import torch
 from torchvision.transforms import Resize
 
 from .matchers import LightGlue, LoFTR
-from .__models import SuperGlue, SGMNet, ASpanFormer, DKM
+# from .__models import SuperGlue, SGMNet, ASpanFormer, DKM
 from .pose_solver import EssentialMatrixSolver, EssentialMatrixMetricSolver, PnPSolver, ProcrustesSolver
 
 import time
@@ -16,14 +16,16 @@ class PoseRecover():
             self.matcher = LightGlue(device=device)
         elif matcher == 'loftr':
             self.matcher = LoFTR(device=device)
-        elif matcher == 'superglue':
-            self.matcher = SuperGlue(device=device)
-        elif matcher == 'aspanformer':
-            self.matcher = ASpanFormer(device=device)
-        elif matcher == 'sgmnet':
-            self.matcher = SGMNet(device=device)
-        elif matcher == 'dkm':
-            self.matcher = DKM(device=device)
+        # elif matcher == 'superglue':
+        #     self.matcher = SuperGlue(device=device)
+        # elif matcher == 'aspanformer':
+        #     self.matcher = ASpanFormer(device=device)
+        # elif matcher == 'sgmnet':
+        #     self.matcher = SGMNet(device=device)
+        # elif matcher == 'dkm':
+        #     self.matcher = DKM(device=device)
+        else:
+            raise NotImplementedError
 
         self.img_resize = img_resize
 

@@ -156,7 +156,8 @@ class CrossBlock(nn.Module):
             nn.GELU(),
             nn.Linear(2 * embed_dim, embed_dim),
         )
-        self.reg_attn = nn.Identity()
+        # self.reg_attn = nn.Identity()
+        # self.reg_sim = nn.Identity()
 
     def map_(self, func: Callable, x0: torch.Tensor, x1: torch.Tensor):
         return func(x0), func(x1)
@@ -180,7 +181,8 @@ class CrossBlock(nn.Module):
         assert len(match.shape) == 3
         match = match.unsqueeze(1)
         sim = sim * match
-        sim = self.reg_attn(sim)
+        # sim = self.reg_attn(sim)
+        # match = self.reg_sim(match)
         
         attn01 = F.softmax(sim, dim=-1)
         attn10 = F.softmax(sim.transpose(-2, -1).contiguous(), dim=-1)
@@ -306,8 +308,8 @@ class RelPose(nn.Module):
             nn.Linear(conf.descriptor_dim//2, 3),
         )
 
-        self.reg_kpts0 = nn.Identity()
-        self.reg_kpts1 = nn.Identity()
+        # self.reg_kpts0 = nn.Identity()
+        # self.reg_kpts1 = nn.Identity()
 
         # static lengths LightGlue is compiled for (only used with torch.compile)
         self.static_lengths = None
@@ -402,8 +404,8 @@ class RelPose(nn.Module):
         desc0 = self.input_proj(desc0)
         desc1 = self.input_proj(desc1)
 
-        kpts0 = self.reg_kpts0(kpts0)
-        kpts1 = self.reg_kpts1(kpts1)
+        # kpts0 = self.reg_kpts0(kpts0)
+        # kpts1 = self.reg_kpts1(kpts1)
 
         # cache positional embeddings
         kpts0 = normalize_keypoints(kpts0, intrinsic0)
