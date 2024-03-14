@@ -158,5 +158,5 @@ python eval_baselines.py configs/<dataset>.yaml lightglue --resize 640 --depth
 python eval_baselines.py configs/<dataset>.yaml loftr --resize 640 --depth
 ```
 
-The `--resize xx` option controls the larger dimension of input images that will be resized to.
+The `--resize xx` option controls the larger dimension of cropped target object images that will be resized to.
 The `--depth` option controls whether the depth maps will be used to obtain scaled pose estimation.
