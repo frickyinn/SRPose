@@ -75,7 +75,7 @@ def main(args):
 
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
     latest_checkpoint_callback = ModelCheckpoint()
-    best_checkpoint_callback = ModelCheckpoint(monitor='valid_auc@20', mode='max')
+    best_checkpoint_callback = ModelCheckpoint(monitor='valid/auc@20', mode='max')
     trainer = L.Trainer(
         devices=[0],
         # devices=[0, 1],
