@@ -160,3 +160,21 @@ python eval_baselines.py configs/<dataset>.yaml loftr --resize 640 --depth
 
 The `--resize xx` option controls the larger dimension of cropped target object images that will be resized to.
 The `--depth` option controls whether the depth maps will be used to obtain scaled pose estimation.
+
+## Acknowledgements
+In this repository, we have used codes from the following repositories. We thank all the authors for sharing great codes.
+- [LightGlue](https://github.com/cvg/LightGlue)
+- [LoFTR](https://github.com/zju3dv/LoFTR)
+- [8point](https://github.com/crockwell/rel_pose)
+- [SparsePlanes](https://github.com/jinlinyi/SparsePlanes/tree/main)
+- [Map-free](https://github.com/nianticlabs/map-free-reloc/tree/main)
+
+## Citation
+```
+@inproceedings{yin2024srpose,
+    title={SRPose: Two-view Relative Pose Estimation with Sparse Keypoints},
+    author={Yin, Rui and Zhang, Yulun and Pan, Zherong and Zhu, Jianjun and Wang, Cheng and Jia, Biao},
+    booktitle={ECCV},
+    year={2024}
+}
+```
