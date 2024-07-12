@@ -1,5 +1,6 @@
 # SRPose: Two-view Relative Pose Estimation with Sparse Keypoints
 **SRPose**: A **S**parse keypoint-based framework for **R**elative **Pose** estimation between two views in both camera-to-world and object-to-camera scenarios.
+[[arXiv]](https://arxiv.org/abs/2407.08199)
 
 | Reference | Query  |	Ground Truth |
 |:--------:| :---------:|:--------:|
