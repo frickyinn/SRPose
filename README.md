@@ -1,11 +1,13 @@
 # SRPose: Two-view Relative Pose Estimation with Sparse Keypoints
+
 **SRPose**: A **S**parse keypoint-based framework for **R**elative **Pose** estimation between two views in both camera-to-world and object-to-camera scenarios.
-[[arXiv]](https://arxiv.org/abs/2407.08199)
 
 | Reference | Query  |	Ground Truth |
-|:--------:| :---------:|:--------:|
+|:--------:|:---------:|:--------:|
 | ![](assets/figures/scene5_vis_0.png) | ![](assets/figures/scene5_vis_1.png) | ![](assets/figures/scene5_vis_gt.png) |
 | ![](assets/figures/obj_vis_reference_labeled.png) | ![](assets/figures/obj_vis_query.png) |![](assets/figures/obj_vis_gt.png)|
+
+## [Project page](https://frickyinn.github.io/srpose/) | [arXiv](https://arxiv.org/abs/2407.08199)
 
 ## Setup
 Please first intall PyTorch according to [here](https://pytorch.org/get-started/locally/), then install other dependencies using pip:
